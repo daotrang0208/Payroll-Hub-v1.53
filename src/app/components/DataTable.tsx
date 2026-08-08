@@ -1066,11 +1066,12 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
       // ── Guard: Date objects cannot be rendered as React children ────────────
       if (value instanceof Date) {
         if (isNaN(value.getTime())) return ""; // Invalid Date
-        if (effectiveType === "currency" || effectiveType === "money") {
-          return formatVNRobust(parseMoneyToNumber(value), 0);
-        }
-        if (effectiveType === "number") {
-          return formatVNRobust(parseMoneyToNumber(value), 2);
+        if (
+          effectiveType === "currency" ||
+          effectiveType === "money" ||
+          effectiveType === "number"
+        ) {
+          return "";
         }
         if (effectiveType === "date") {
           return value.toLocaleDateString("vi-VN", {
@@ -2116,7 +2117,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
           isNumericColumnForClipboard(col) ||
           isChargeAmountColumn(col.key)
         ) {
-          return formatClipboardNumber(parseMoneyToNumber(value));
+          return "";
         }
         return isNaN(value.getTime())
           ? ""

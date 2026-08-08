@@ -153,52 +153,42 @@ interface PendingUpload {
   existingRowId?: string;
 }
 
-type PendingMasterRequest = {
-  resolve: (result: MasterWorkbookPayload) => void;
-  reject: (error: Error) => void;
-};
-
-let masterImportWorker: Worker | null = null;
-const pendingMasterRequests = new Map<string, PendingMasterRequest>();
-
-function getMasterImportWorker() {
-  if (masterImportWorker) return masterImportWorker;
-  masterImportWorker = new MasterImportWorker();
-  masterImportWorker.onmessage = (event: MessageEvent) => {
-    const requestId = String(event.data?.requestId || "");
-    const pending = pendingMasterRequests.get(requestId);
-    if (!pending) return;
-    pendingMasterRequests.delete(requestId);
-    if (event.data?.success) {
-      pending.resolve(event.data.result as MasterWorkbookPayload);
-    } else {
-      pending.reject(
-        new Error(event.data?.error || "Không thể xử lý file Master."),
-      );
-    }
-  };
-  masterImportWorker.onerror = (event) => {
-    const error = new Error(
-      event.message || "Master Import Worker đã dừng bất thường.",
-    );
-    pendingMasterRequests.forEach(({ reject }) => reject(error));
-    pendingMasterRequests.clear();
-    masterImportWorker?.terminate();
-    masterImportWorker = null;
-  };
-  return masterImportWorker;
-}
-
 function parseMasterFileInWorker(
   file: File,
   isMktFile: boolean,
   targetFields: string[],
+  includeRows: boolean,
 ) {
   const requestId = crypto.randomUUID();
-  const worker = getMasterImportWorker();
+  const worker = new MasterImportWorker();
   return new Promise<MasterWorkbookPayload>((resolve, reject) => {
-    pendingMasterRequests.set(requestId, { resolve, reject });
-    worker.postMessage({ requestId, file, isMktFile, targetFields });
+    const finish = () => worker.terminate();
+    worker.onmessage = (event: MessageEvent) => {
+      if (String(event.data?.requestId || "") !== requestId) return;
+      finish();
+      if (event.data?.success) {
+        resolve(event.data.result as MasterWorkbookPayload);
+      } else {
+        reject(
+          new Error(event.data?.error || "Không thể xử lý file Master."),
+        );
+      }
+    };
+    worker.onerror = (event) => {
+      finish();
+      reject(
+        new Error(
+          event.message || "Master Import Worker đã dừng bất thường.",
+        ),
+      );
+    };
+    worker.postMessage({
+      requestId,
+      file,
+      isMktFile,
+      targetFields,
+      includeRows,
+    });
   });
 }
 
@@ -231,9 +221,6 @@ export function AEDataConfig({
   const [processingMessage, setProcessingMessage] = useState("");
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const preparedMasterFilesRef = useRef(
-    new Map<string, MasterWorkbookPayload>(),
-  );
   const pendingProcessingIdsRef = useRef<string[]>([]);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [choices, setChoices] = useState<
@@ -429,7 +416,6 @@ export function AEDataConfig({
   }, [totalPages]);
 
   const clearPageData = () => {
-    preparedMasterFilesRef.current.clear();
     pendingProcessingIdsRef.current = [];
     updateAppData((prev) => ({
       ...prev,
@@ -472,7 +458,6 @@ export function AEDataConfig({
 
   const deleteRow = (id: string | undefined) => {
     if (!id) return;
-    preparedMasterFilesRef.current.delete(id);
     pendingProcessingIdsRef.current = pendingProcessingIdsRef.current.filter(
       (queuedId) => queuedId !== id,
     );
@@ -553,8 +538,8 @@ export function AEDataConfig({
         file,
         guessedBank === "MKT LOCAL NORTH",
         masterAeFields,
+        false,
       );
-      preparedMasterFilesRef.current.set(id, parsed);
       pendingProcessingIdsRef.current = [
         ...pendingProcessingIdsRef.current.filter(
           (queuedId) => queuedId !== id,
@@ -772,8 +757,8 @@ export function AEDataConfig({
           choice.file,
           guessedBank === "MKT LOCAL NORTH",
           masterAeFields,
+          false,
         );
-        preparedMasterFilesRef.current.set(id, parsed);
         queuedIds.push(id);
       } catch (error: any) {
         status = `Error: ${error?.message || String(error)}`;
@@ -851,10 +836,7 @@ export function AEDataConfig({
     );
   };
 
-  const processAEData = async (
-    targetOverride?: AERow[],
-    preparedOverride?: Map<string, MasterWorkbookPayload>,
-  ) => {
+  const processAEData = async (targetOverride?: AERow[]) => {
     const availableRowsById = new Map(
       appData.Ae_Global_Inputs.map((row) => [row.id, row]),
     );
@@ -908,10 +890,16 @@ export function AEDataConfig({
     ) => {
       if (mapping && mapping[targetField]) {
         const mappedHeader = mapping[targetField].toUpperCase().trim();
-        const idx = headers.findIndex(
-          (h) => String(h).toUpperCase().trim() === mappedHeader,
-        );
-        if (idx !== -1) return idx;
+        const isUnsafeMktMapping =
+          targetField === "Charge MKT Local" &&
+          !mappedHeader.includes("MKT") &&
+          !mappedHeader.includes("MARKETING");
+        if (!isUnsafeMktMapping) {
+          const idx = headers.findIndex(
+            (h) => String(h).toUpperCase().trim() === mappedHeader,
+          );
+          if (idx !== -1) return idx;
+        }
       }
       
       // 1. Exact Match on targetField
@@ -956,9 +944,6 @@ export function AEDataConfig({
       const soSanhAeData: any[] = [];
       const rosterDataToAppend: any[] = [];
       const statusById = new Map<string, string>();
-      const preparedFiles =
-        preparedOverride || preparedMasterFilesRef.current;
-
       const sheet1Headers = [
         "No.",
         "Tháng báo cáo",
@@ -1009,14 +994,12 @@ export function AEDataConfig({
         const effectiveBank = isMktFile ? "MKT LOCAL NORTH" : item.bank || "";
 
         try {
-          const parsedWorkbook =
-            preparedFiles.get(item.id) ||
-            (await parseMasterFileInWorker(
-              item.fileObj,
-              isMktFile,
-              masterAeFields,
-            ));
-          preparedMasterFilesRef.current.set(item.id, parsedWorkbook);
+          const parsedWorkbook = await parseMasterFileInWorker(
+            item.fileObj,
+            isMktFile,
+            masterAeFields,
+            true,
+          );
           const itemColumnMapping =
             item.columnMapping && Object.keys(item.columnMapping).length > 0
               ? item.columnMapping
@@ -2119,9 +2102,6 @@ export function AEDataConfig({
           }
         } catch (e: any) {
           statusById.set(item.id, `Error: ${e.message}`);
-        } finally {
-          preparedMasterFilesRef.current.delete(item.id);
-          preparedFiles.delete(item.id);
         }
       }
 
@@ -2457,6 +2437,13 @@ export function AEDataConfig({
         // Merge Sheet1_AE with existing data to keep multiple months
         const existingSheet1 = prev.Sheet1_AE?.data || [];
         const sheet1Map = new Map<string, any>();
+        const refreshedSheet1Files = new Set(
+          targets
+            .filter((target) => !isMktMasterInput(target))
+            .flatMap((target) => [target.name, target.fileObj?.name])
+            .map((fileName) => String(fileName || "").trim().toUpperCase())
+            .filter(Boolean),
+        );
 
         const getSheet1Key = (r: any) => {
           if (!r) return "";
@@ -2470,6 +2457,10 @@ export function AEDataConfig({
 
         existingSheet1.forEach((row) => {
           if (!row) return;
+          const sourceFile = String(row["TÊN FILE"] || row._sourceFile || "")
+            .trim()
+            .toUpperCase();
+          if (sourceFile && refreshedSheet1Files.has(sourceFile)) return;
           const k = getSheet1Key(row);
           if (k) sheet1Map.set(k, row);
         });

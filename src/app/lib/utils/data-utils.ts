@@ -2,28 +2,9 @@ export function parseMoneyToNumber(val: any): number {
   if (typeof val === "number") return Number.isFinite(val) ? val : 0;
   if (typeof val === "bigint") return Number(val);
   if (val instanceof Date) {
-    if (Number.isNaN(val.getTime())) return 0;
-
-    // SheetJS returns a Date when an Excel numeric cell has a date format and
-    // `cellDates: true` is enabled. Rebuild the original Excel serial from the
-    // local date components so charge values such as OTHER are not interpreted
-    // as calendar dates. The small tolerance removes historical timezone
-    // rounding errors (typically a few seconds for dates around 1900).
-    const excelEpoch = Date.UTC(1899, 11, 30);
-    const localComponentsAsUtc = Date.UTC(
-      val.getFullYear(),
-      val.getMonth(),
-      val.getDate(),
-      val.getHours(),
-      val.getMinutes(),
-      val.getSeconds(),
-      val.getMilliseconds(),
-    );
-    const serial = (localComponentsAsUtc - excelEpoch) / 86_400_000;
-    const nearestInteger = Math.round(serial);
-    return Math.abs(serial - nearestInteger) < 0.0001
-      ? nearestInteger
-      : serial;
+    // A calendar value is never a payroll amount. Converting it back to an
+    // Excel serial leaks dates such as 20/07/2026 into charge columns as 46223.
+    return 0;
   }
   if (val === null || val === undefined || val === "") return 0;
 
@@ -405,10 +386,7 @@ export function scoreMatch(
   const normalizedAliases = aliases.map(normalizeHeaderForMatching);
   if (normalizedAliases.includes(normalizedHeader)) return 95;
 
-  if (
-    normalizedHeader.includes(normalizedTarget) ||
-    normalizedTarget.includes(normalizedHeader)
-  ) {
+  if (normalizedHeader.includes(normalizedTarget)) {
     return 85;
   }
 
@@ -416,7 +394,7 @@ export function scoreMatch(
     normalizedAliases.some(
       (alias) =>
         alias &&
-        (normalizedHeader.includes(alias) || alias.includes(normalizedHeader)),
+        normalizedHeader.includes(alias),
     )
   ) {
     return 80;
