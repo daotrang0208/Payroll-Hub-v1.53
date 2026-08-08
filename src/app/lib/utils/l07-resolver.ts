@@ -43,6 +43,51 @@ export function getNormCenter(rCen: string, cache?: Map<string, string>) {
   return l07;
 }
 
+/**
+ * Gross Pay rule for rows read from Sheet 1:
+ * every CENTER containing MKT belongs to the MKT Local charge bucket, while
+ * L07 is limited to the four North regional codes requested by payroll.
+ *
+ * This helper is intentionally kept out of Pivot Master processing.
+ */
+export function resolveGrossPayMktL07(rawCenter: string): string {
+  const normalized = String(rawCenter || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "")
+    .trim();
+
+  if (!normalized.includes("MKT")) return "";
+
+  if (
+    normalized.includes("MKTLOCALNORTHHP") ||
+    normalized.includes("MKTHAIPHONG") ||
+    normalized.includes("MKTHP")
+  ) {
+    return "MKT LOCAL NORTH_HP";
+  }
+
+  if (
+    normalized.includes("MKTLOCALNORTHTN") ||
+    normalized.includes("MKTTHAINGUYEN") ||
+    normalized.includes("MKTTN")
+  ) {
+    return "MKT LOCAL NORTH_TN";
+  }
+
+  if (
+    normalized.includes("MKTLOCALNORTHTH") ||
+    normalized.includes("MKTTHANHHOA") ||
+    normalized.includes("MKTTH")
+  ) {
+    return "MKT LOCAL NORTH_TH";
+  }
+
+  return "MKT LOCAL NORTH";
+}
+
 export function resolveL07Logic(
   input: ResolveL07Input,
   TASK_COLUMNS: any
@@ -62,6 +107,7 @@ export function resolveL07Logic(
   const fileUpperName = String(sourceFile).toUpperCase();
   const hasMktInFile =
     fileUpperName.includes("MKT") || fileUpperName.includes("MARKETING");
+  const grossPayMktL07 = resolveGrossPayMktL07(rCen);
 
   let l07 = "";
   let originalL07 = "";
@@ -147,8 +193,8 @@ export function resolveL07Logic(
   let isMktLocal = !!(hasMktInCenter || isChargeColMkt || hasMktInFile || mktResolved.isMktLocal);
 
   if (isMktLocal) {
-    l07 = mktResolved.l07 || l07;
-    originalL07 = mktResolved.l07 || originalL07;
+    l07 = grossPayMktL07 || mktResolved.l07 || l07;
+    originalL07 = grossPayMktL07 || mktResolved.l07 || originalL07;
     mktRegion = l07.toUpperCase().includes("SOUTH") ? "SOUTH" : "NORTH";
   }
 
@@ -274,8 +320,8 @@ export function resolveL07Logic(
 
   // Use already pre-resolved MKT fields
   if (isMktLocal) {
-    l07 = mktResolved.l07 || l07;
-    originalL07 = mktResolved.l07 || originalL07;
+    l07 = grossPayMktL07 || mktResolved.l07 || l07;
+    originalL07 = grossPayMktL07 || mktResolved.l07 || originalL07;
     isMktLocal = true;
     chargeToCenterMkt = mktResolved.chargeToCenterMkt || chargeToCenterMkt || rCen;
     aeCode = mktResolved.aeCode || aeCode;

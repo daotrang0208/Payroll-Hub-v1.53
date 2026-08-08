@@ -82,6 +82,7 @@ import {
   TooltipContent,
 } from "../../components/ui/tooltip";
 import { DataTable } from "../../components/DataTable";
+import { BulkPaymentAnalytics } from "./components/BulkPaymentAnalytics";
 import { motion, AnimatePresence } from "motion/react";
 import {
   DropdownMenu,
@@ -2974,7 +2975,7 @@ export function BulkPayment({
                       value="visuals"
                       className="font-semibold text-[10px] text-slate-800 bg-white"
                     >
-                      ANALYTICS
+                      ANALYS_BULKPAYMENT
                     </option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-600 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -3771,170 +3772,18 @@ export function BulkPayment({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1 }}
-                  className="flex-1 overflow-y-auto custom-scrollbar p-4 mx-3 my-3"
+                  className="flex-1 min-h-0 overflow-hidden"
                 >
-                  <div className="flex flex-col gap-6">
-                    {/* Header summary of remaining hold */}
-                    <div className="bg-[#FFFEFA] border border-primary/10 rounded-2xl p-6 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
-                      <div className="max-w-md">
-                        <h4 className="font-display font-normal text-primary text-lg tracking-tight">
-                          Thống kê số dư Hold
-                        </h4>
-                        <p className="text-[10px] font-medium text-primary/50 uppercase tracking-[0.05em] block mt-1 leading-relaxed">
-                          Số dư còn Hold được tính bằng tổng các khoản Hold của
-                          tháng phát sinh trừ đi các khoản Add (giải toả) đã
-                          thực hiện.
-                        </p>
-                      </div>
-                      <div className="bg-white border border-primary/5 p-4 rounded-xl flex items-center justify-between gap-8 shrink-0 min-w-[280px] shadow-sm">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[9px] font-bold text-primary/40 uppercase tracking-widest block">
-                            Tổng số dư còn Hold
-                          </span>
-                          <span className="text-2xl font-display font-normal text-rose-600 block mt-1 leading-none">
-                            {formatMoneyVND(
-                              remainingHoldByMonth.reduce(
-                                (sum, item) => sum + item.remaining,
-                                0,
-                              ),
-                            ).replace(" ₫", "")}
-                          </span>
-                        </div>
-                        <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 shadow-sm shadow-rose-500/5">
-                          <TrendingDown className="w-6 h-6" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Grid of Months with custom progress visualizations */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {remainingHoldByMonth.map((item, idx) => {
-                        const totalHold = item.holdAmount;
-                        const totalAdd = item.addAmount;
-                        const remaining = item.remaining;
-
-                        return (
-                          <div
-                            key={idx}
-                            className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col gap-4 hover:shadow-xs transition-shadow"
-                          >
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                              <div>
-                                <h5 className="font-sans font-bold text-slate-800 text-sm uppercase tracking-wide">
-                                  {item.month}
-                                </h5>
-                                <span className="text-[10px] font-semibold text-slate-400">
-                                  Trạng thái số dư Hold
-                                </span>
-                              </div>
-                              <span
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold border leading-none font-sans ${
-                                  remaining > 0
-                                    ? "bg-rose-50 text-rose-600 border-rose-100"
-                                    : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                }`}
-                              >
-                                {remaining > 0
-                                  ? `CÒN HOLD: ${formatMoneyVND(remaining).replace(" ₫", "")}`
-                                  : "ĐÃ GIẢI TOẢ"}
-                              </span>
-                            </div>
-
-                            <div className="space-y-4">
-                              {/* BU Breakdown Table */}
-                              <div className="overflow-x-auto border border-slate-300 rounded-lg">
-                                <table className="w-full text-left border-separate border-spacing-0 text-[11px] font-sans">
-                                  <thead className="sticky top-0 bg-slate-100 text-slate-700 z-10">
-                                    <tr>
-                                      <th className="p-2 font-bold uppercase tracking-wider text-[9px] border-r border-b border-slate-300 bg-slate-100">
-                                        Đơn vị (BU)
-                                      </th>
-                                      <th className="p-2 text-right font-bold uppercase tracking-wider text-[9px] border-r border-b border-slate-300 bg-slate-100">
-                                        Hold
-                                      </th>
-                                      <th className="p-2 text-right font-bold uppercase tracking-wider text-[9px] border-r border-b border-slate-300 bg-slate-100">
-                                        Chi thêm
-                                      </th>
-                                      <th className="p-2 text-right font-bold uppercase tracking-wider text-[9px] border-b border-slate-300 bg-slate-100">
-                                        Chênh lệch
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {Object.entries(item.bus || {}).map(
-                                      ([buName, buVal]: any) => {
-                                        const buHold = buVal.holdAmount || 0;
-                                        const buAdd = buVal.addAmount || 0;
-                                        const buRem = buVal.remaining || 0;
-                                        return (
-                                          <tr key={buName} className="bg-white">
-                                            <td className="p-2 font-bold text-slate-700 border-b border-r border-slate-200">
-                                              {buName}
-                                            </td>
-                                            <td className="p-2 text-right font-mono text-slate-600 font-medium border-b border-r border-slate-200">
-                                              {buHold > 0
-                                                ? formatMoneyVND(
-                                                    buHold,
-                                                  ).replace(" ₫", "")
-                                                : "0"}
-                                            </td>
-                                            <td className="p-2 text-right font-mono text-emerald-600 font-semibold border-b border-r border-slate-200">
-                                              {buAdd > 0
-                                                ? `-${formatMoneyVND(buAdd).replace(" ₫", "")}`
-                                                : "0"}
-                                            </td>
-                                            <td
-                                              className={`p-2 text-right font-mono font-bold border-b border-slate-200 ${buRem > 0 ? "text-rose-600" : buRem < 0 ? "text-emerald-600" : "text-slate-400"}`}
-                                            >
-                                              {buRem !== 0
-                                                ? formatMoneyVND(buRem).replace(
-                                                    " ₫",
-                                                    "",
-                                                  )
-                                                : "0"}
-                                            </td>
-                                          </tr>
-                                        );
-                                      },
-                                    )}
-                                    {/* Total row */}
-                                    <tr className="bg-slate-50 font-bold">
-                                      <td className="p-2 text-slate-700 font-bold uppercase tracking-wider text-[9px] border-b border-r border-slate-300 bg-slate-100">
-                                        Tổng cộng
-                                      </td>
-                                      <td className="p-2 text-right font-mono text-slate-800 font-bold border-b border-r border-slate-300 bg-slate-100">
-                                        {totalHold > 0
-                                          ? formatMoneyVND(totalHold).replace(
-                                              " ₫",
-                                              "",
-                                            )
-                                          : "0"}
-                                      </td>
-                                      <td className="p-2 text-right font-mono text-emerald-700 font-bold border-b border-r border-slate-300 bg-slate-100">
-                                        {totalAdd > 0
-                                          ? `-${formatMoneyVND(totalAdd).replace(" ₫", "")}`
-                                          : "0"}
-                                      </td>
-                                      <td
-                                        className={`p-2 text-right font-mono font-bold border-b border-slate-300 bg-slate-100 ${remaining > 0 ? "text-rose-700" : remaining < 0 ? "text-emerald-700" : "text-slate-500"}`}
-                                      >
-                                        {remaining !== 0
-                                          ? formatMoneyVND(remaining).replace(
-                                              " ₫",
-                                              "",
-                                            )
-                                          : "0"}
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <BulkPaymentAnalytics
+                    sheet1Rows={appData.Sheet1_AE?.data || []}
+                    holdRows={appData.Hold_AE?.data || []}
+                    bankRows={
+                      appData.BankExport?.data?.length > 0
+                        ? appData.BankExport.data
+                        : appData.Bank_North_AE?.data || []
+                    }
+                    globalMonth={appData.globalMonth || "03.2026"}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
