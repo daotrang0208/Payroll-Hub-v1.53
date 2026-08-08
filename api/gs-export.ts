@@ -32,6 +32,98 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000): Promise<a
   return response;
 }
 
+function normalizeSheetTitle(value: unknown): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function rosterSheetScore(title: unknown): number {
+  const normalized = normalizeSheetTitle(title);
+  if (normalized === "Q ROSTER") return 100;
+  if (normalized === "ROSTER") return 95;
+  if (!normalized.includes("ROSTER")) return 0;
+
+  let score = normalized.startsWith("Q ROSTER") ? 85 : 75;
+  if (/\b(OLD|COPY|BACKUP|ARCHIVE|TEMP)\b/.test(normalized)) score -= 35;
+  return score;
+}
+
+function looksLikeRosterValues(rows: unknown[][]): boolean {
+  const keywords = new Set([
+    "CENTER",
+    "LOCATION",
+    "EMPLOYEE",
+    "TEACHER",
+    "DURATION",
+    "HOURS",
+    "CLASS",
+    "CLASS NAME",
+    "DATE",
+    "FROM",
+    "TO",
+    "TASK",
+    "S CODE",
+    "ID NUMBER",
+    "MA NV",
+    "HO VA TEN",
+  ]);
+
+  return rows.slice(0, 50).some((row) => {
+    let matches = 0;
+    for (const cell of row || []) {
+      const normalized = normalizeSheetTitle(cell);
+      if (
+        keywords.has(normalized) ||
+        normalized.includes("CHARGE TO CENTER") ||
+        normalized.includes("SO GIO") ||
+        normalized.includes("GIO LAM")
+      ) {
+        matches++;
+      }
+    }
+    return matches >= 2;
+  });
+}
+
+function parseCsvPreview(csvText: string): string[][] {
+  return csvText
+    .split(/\r?\n/)
+    .slice(0, 50)
+    .map((line) => line.split(",").map((cell) => cell.replace(/^"|"$/g, "")));
+}
+
+async function fetchPublicRosterCsv(
+  spreadsheetId: string,
+): Promise<{ csvText: string; sheetTitle: string } | null> {
+  const candidates = ["Q_Roster", "Q Roster", "Roster", "ROSTER"];
+  for (const sheetTitle of candidates) {
+    const targetUrl =
+      `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq` +
+      `?tqx=out:csv&sheet=${encodeURIComponent(sheetTitle)}`;
+    try {
+      const response = await fetchWithRetry(targetUrl);
+      if (!response.ok) continue;
+      const csvText = await response.text();
+      if (
+        !csvText ||
+        csvText.trim().toLowerCase().startsWith("<!doctype html>") ||
+        !looksLikeRosterValues(parseCsvPreview(csvText))
+      ) {
+        continue;
+      }
+      return { csvText, sheetTitle };
+    } catch (error) {
+      console.warn(`[API] Public sheet candidate ${sheetTitle} failed:`, error);
+    }
+  }
+  return null;
+}
+
 export default async function handler(req: any, res: any) {
   // Allow CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -56,6 +148,11 @@ export default async function handler(req: any, res: any) {
     }
 
     let spreadsheetId = "";
+    const credsPath = path.join(process.cwd(), "credentials.json");
+    const hasEnvCreds = Boolean(
+      process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY,
+    );
+    const hasCredentialConfig = hasEnvCreds || fs.existsSync(credsPath);
     
     // Handle Published to Web URLs (2PACX-...)
     if (url.includes("docs.google.com/spreadsheets/d/e/")) {
@@ -91,6 +188,7 @@ export default async function handler(req: any, res: any) {
     
     let gid = "0";
     const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
+    const hasExplicitGid = Boolean(gidMatch);
     if (gidMatch) {
       gid = gidMatch[1];
     }
@@ -100,31 +198,47 @@ export default async function handler(req: any, res: any) {
     let responseOk = false;
     let csvText = "";
 
-    try {
-      console.log(`[API] Attempting public fetch for: ${exportUrl}`);
-      const response = await fetchWithRetry(exportUrl);
-      if (response.ok) {
-        csvText = await response.text();
+    if (!hasExplicitGid && !hasCredentialConfig) {
+      const publicRoster = await fetchPublicRosterCsv(spreadsheetId);
+      if (publicRoster) {
+        csvText = publicRoster.csvText;
         responseOk = true;
-        // Check if it's an HTML login page instead of CSV
-        if (csvText.trim().toLowerCase().startsWith("<!doctype html>")) {
-          console.log("[API] Public fetch returned HTML (login page), will fallback to credentials.");
-          responseOk = false;
-        } else {
-          console.log("[API] Public fetch successful.");
-        }
-      } else {
-        console.log(`[API] Public fetch returned status ${response.status}, proceeding with credentials fallback...`);
+        res.setHeader("X-Worksheet-Name", encodeURIComponent(publicRoster.sheetTitle));
+        res.setHeader(
+          "Access-Control-Expose-Headers",
+          "X-Spreadsheet-Name, X-Worksheet-Name",
+        );
+        console.log(
+          `[API] Public roster sheet selected: "${publicRoster.sheetTitle}"`,
+        );
       }
-    } catch (err) {
-      console.warn("[API] Public fetch exception:", err);
+    }
+
+    if (!responseOk && hasExplicitGid) {
+      try {
+        console.log(`[API] Attempting public fetch for: ${exportUrl}`);
+        const response = await fetchWithRetry(exportUrl);
+        if (response.ok) {
+          csvText = await response.text();
+          responseOk = true;
+          // Check if it's an HTML login page instead of CSV
+          if (csvText.trim().toLowerCase().startsWith("<!doctype html>")) {
+            console.log("[API] Public fetch returned HTML (login page), will fallback to credentials.");
+            responseOk = false;
+          } else {
+            console.log("[API] Public fetch successful.");
+          }
+        } else {
+          console.log(`[API] Public fetch returned status ${response.status}, proceeding with credentials fallback...`);
+        }
+      } catch (err) {
+        console.warn("[API] Public fetch exception:", err);
+      }
     }
 
     // Fallback to credentials if public fetch failed or returned HTML
     if (!responseOk) {
-      const credsPath = path.join(process.cwd(), "credentials.json");
       let auth;
-      const hasEnvCreds = process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY;
 
       if (hasEnvCreds) {
         auth = new google.auth.GoogleAuth({
@@ -192,27 +306,68 @@ export default async function handler(req: any, res: any) {
             
             console.log(`[API] Sheets found in ${fileMetadata.name || spreadsheetId}:`, sheetsList.map(s => s.properties?.title));
             
-            // Tìm tất cả các sheet hiển thị trong file có sheet nào Roster hay Q_Roster không
-            let targetSheet = sheetsList.find(s => {
-              const title = s.properties?.title || "";
-              return title === "Roster" || title === "Q_Roster";
-            });
+            const sheetByExplicitGid = hasExplicitGid
+              ? sheetsList.find(
+                  (sheet) => String(sheet.properties?.sheetId ?? "") === gid,
+                )
+              : undefined;
+            const rankedRosterSheets = sheetsList
+              .map((sheet) => ({
+                sheet,
+                score: rosterSheetScore(sheet.properties?.title),
+              }))
+              .filter((item) => item.score > 0)
+              .sort((left, right) => right.score - left.score);
 
-            if (!targetSheet) {
-              targetSheet = sheetsList.find(s => {
-                const title = (s.properties?.title || "").toLowerCase();
-                return title === "roster" || title === "q_roster" || title.includes("roster") || title.includes("q_roster");
-              });
+            let chosenSheet = sheetByExplicitGid || rankedRosterSheets[0]?.sheet;
+
+            if (!chosenSheet) {
+              for (const sheet of sheetsList) {
+                const candidateTitle = sheet.properties?.title || "";
+                if (!candidateTitle) continue;
+                try {
+                  const escapedTitle = candidateTitle.replace(/'/g, "''");
+                  const preview = await sheets.spreadsheets.values.get({
+                    spreadsheetId,
+                    range: `'${escapedTitle}'!1:50`,
+                    valueRenderOption: "FORMATTED_VALUE",
+                  });
+                  if (looksLikeRosterValues(preview.data.values || [])) {
+                    chosenSheet = sheet;
+                    break;
+                  }
+                } catch (previewError) {
+                  console.warn(
+                    `[API] Could not inspect sheet "${candidateTitle}":`,
+                    previewError,
+                  );
+                }
+              }
             }
 
-            const chosenSheet = targetSheet || sheetsList[0];
-            const sheetTitle = chosenSheet?.properties?.title || "Sheet1";
+            if (!chosenSheet) {
+              const availableSheets = sheetsList
+                .map((sheet) => sheet.properties?.title)
+                .filter(Boolean)
+                .join(", ");
+              throw new Error(
+                `Không tìm thấy sheet Roster hoặc Q_Roster trong file. Các sheet hiện có: ${availableSheets || "(trống)"}`,
+              );
+            }
+
+            const sheetTitle = chosenSheet.properties?.title || "Sheet1";
             console.log(`[API] Chosen sheet to export: "${sheetTitle}"`);
+            res.setHeader("X-Worksheet-Name", encodeURIComponent(sheetTitle));
+            res.setHeader(
+              "Access-Control-Expose-Headers",
+              "X-Spreadsheet-Name, X-Worksheet-Name",
+            );
 
             // Fetch values using Sheets API and convert to CSV to ensure perfect export of correct sheet
+            const escapedSheetTitle = sheetTitle.replace(/'/g, "''");
             const valuesRes = await sheets.spreadsheets.values.get({
               spreadsheetId,
-              range: sheetTitle,
+              range: `'${escapedSheetTitle}'`,
               valueRenderOption: 'FORMATTED_VALUE',
             });
             const rows = valuesRes.data.values || [];

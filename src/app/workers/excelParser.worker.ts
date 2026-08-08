@@ -74,6 +74,31 @@ function findHeaderRow(rows: any[][]) {
   return -1;
 }
 
+function normalizeSheetName(sheetName: string): string {
+  return String(sheetName || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isRosterSheetName(sheetName: string): boolean {
+  const normalized = normalizeSheetName(sheetName);
+  return (
+    normalized === "ROSTER" ||
+    normalized === "Q ROSTER" ||
+    normalized.startsWith("Q ROSTER ") ||
+    normalized.startsWith("ROSTER ")
+  );
+}
+
+function isGenericDataSheetName(sheetName: string): boolean {
+  const normalized = normalizeSheetName(sheetName);
+  return normalized.includes("DU LIEU") || normalized.includes("DATA");
+}
+
 export function parseExcelData(
   fileBuffer: ArrayBuffer,
   fileName: string,
@@ -99,26 +124,19 @@ export function parseExcelData(
         dense: true,
       });
 
-  const hasRosterTab = workbook.SheetNames.some((sheetName) => {
-    const normalized = sheetName.toUpperCase().trim();
-    return (
-      normalized === "ROSTER" ||
-      normalized === "Q_ROSTER" ||
-      normalized.includes("DỮ LIỆU") ||
-      normalized.includes("DATA")
-    );
-  });
+  const hasRosterTab = workbook.SheetNames.some(isRosterSheetName);
+  const hasGenericDataTab = workbook.SheetNames.some(isGenericDataSheetName);
   const sheetsToProcess = hasRosterTab
-    ? workbook.SheetNames.filter((sheetName) => {
-        const normalized = sheetName.toUpperCase().trim();
-        return (
-          normalized === "ROSTER" ||
-          normalized === "Q_ROSTER" ||
-          normalized.includes("DỮ LIỆU") ||
-          normalized.includes("DATA")
-        );
+    ? workbook.SheetNames.filter(isRosterSheetName).sort((left, right) => {
+        const leftName = normalizeSheetName(left);
+        const rightName = normalizeSheetName(right);
+        if (leftName === "Q ROSTER" && rightName !== "Q ROSTER") return -1;
+        if (rightName === "Q ROSTER" && leftName !== "Q ROSTER") return 1;
+        return workbook.SheetNames.indexOf(left) - workbook.SheetNames.indexOf(right);
       })
-    : workbook.SheetNames;
+    : hasGenericDataTab
+      ? workbook.SheetNames.filter(isGenericDataSheetName)
+      : workbook.SheetNames;
 
   const allRows: Record<string, unknown>[] = [];
   for (const sheetName of sheetsToProcess) {

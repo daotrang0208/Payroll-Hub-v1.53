@@ -72,6 +72,64 @@ function normalizeCenterKey(str: string): string {
     .replace(/[^A-Z0-9]/g, "");
 }
 
+export const NORTH_MKT_LOCAL_L07_CODES = [
+  "MKT LOCAL NORTH",
+  "MKT LOCAL NORTH_HP",
+  "MKT LOCAL NORTH_TH",
+  "MKT LOCAL NORTH_TN",
+  "MKT LOCAL NORTH_PT",
+] as const;
+
+/**
+ * Resolve the MKT Center values used by Sheet 1 / Gross Pay. This mapping is
+ * deliberately opt-in and is not called by Pivot Master processing.
+ */
+export function resolveNorthMktLocalL07(rawCenter: string): string {
+  const normalized = normalizeCenterKey(rawCenter);
+  if (!normalized.includes("MKT")) return "";
+
+  if (
+    normalized.includes("MKTLOCALNORTHHP") ||
+    normalized.includes("MKTHAIPHONG") ||
+    normalized.includes("MKTHP")
+  ) {
+    return "MKT LOCAL NORTH_HP";
+  }
+
+  // Check Thai Nguyen before the generic MKT TH prefix.
+  if (
+    normalized.includes("MKTLOCALNORTHTN") ||
+    normalized.includes("MKTTHAINGUYEN") ||
+    normalized.includes("MKTTN")
+  ) {
+    return "MKT LOCAL NORTH_TN";
+  }
+
+  if (
+    normalized.includes("MKTLOCALNORTHTH") ||
+    normalized.includes("MKTTHANHHOA") ||
+    normalized.includes("MKTTH")
+  ) {
+    return "MKT LOCAL NORTH_TH";
+  }
+
+  if (
+    normalized.includes("MKTLOCALNORTHPT") ||
+    normalized.includes("MKTPHUTHO") ||
+    normalized.includes("MKTPT")
+  ) {
+    return "MKT LOCAL NORTH_PT";
+  }
+
+  // MKT HN, BN, NA, HY, VIN, VINH, VP and other North MKT aliases.
+  return "MKT LOCAL NORTH";
+}
+
+export function isNorthMktLocalL07(value: string): boolean {
+  const upper = String(value || "").trim().toUpperCase();
+  return (NORTH_MKT_LOCAL_L07_CODES as readonly string[]).includes(upper);
+}
+
 const LOOKUP_MAP = new Map<string, CenterInfo>();
 
 CENTER_DATA.forEach((info) => {
@@ -185,6 +243,12 @@ export function resolveL07BuFromAeCode(code: string): { l07: string; bu: string 
 
 export function getBusinessFromL07(l07: string): string {
   if (!l07) return "AHN";
+  const rawUpper = String(l07).trim().toUpperCase();
+  if (rawUpper === "MKT LOCAL NORTH_HP") return "AHP";
+  if (rawUpper === "MKT LOCAL NORTH_TH") return "ATH";
+  if (rawUpper === "MKT LOCAL NORTH_TN") return "ATN";
+  if (rawUpper === "MKT LOCAL NORTH_PT") return "APT";
+
   const mapped = mapL07(l07);
   const info = getCenterInfoByL07(mapped);
   if (info?.bus) return info.bus;

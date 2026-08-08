@@ -8,6 +8,7 @@ import {
   getAeCodeFromL07,
   getBusinessFromL07,
   resolveMktAndCenterL07,
+  resolveNorthMktLocalL07,
 } from "./center-utils";
 import { getVal } from "./data-utils";
 
@@ -46,46 +47,12 @@ export function getNormCenter(rCen: string, cache?: Map<string, string>) {
 /**
  * Gross Pay rule for rows read from Sheet 1:
  * every CENTER containing MKT belongs to the MKT Local charge bucket, while
- * L07 is limited to the four North regional codes requested by payroll.
+ * L07 is limited to the North regional codes requested by payroll.
  *
  * This helper is intentionally kept out of Pivot Master processing.
  */
 export function resolveGrossPayMktL07(rawCenter: string): string {
-  const normalized = String(rawCenter || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[Đđ]/g, "D")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "")
-    .trim();
-
-  if (!normalized.includes("MKT")) return "";
-
-  if (
-    normalized.includes("MKTLOCALNORTHHP") ||
-    normalized.includes("MKTHAIPHONG") ||
-    normalized.includes("MKTHP")
-  ) {
-    return "MKT LOCAL NORTH_HP";
-  }
-
-  if (
-    normalized.includes("MKTLOCALNORTHTN") ||
-    normalized.includes("MKTTHAINGUYEN") ||
-    normalized.includes("MKTTN")
-  ) {
-    return "MKT LOCAL NORTH_TN";
-  }
-
-  if (
-    normalized.includes("MKTLOCALNORTHTH") ||
-    normalized.includes("MKTTHANHHOA") ||
-    normalized.includes("MKTTH")
-  ) {
-    return "MKT LOCAL NORTH_TH";
-  }
-
-  return "MKT LOCAL NORTH";
+  return resolveNorthMktLocalL07(rawCenter);
 }
 
 export function resolveL07Logic(

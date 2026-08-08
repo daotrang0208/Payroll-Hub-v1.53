@@ -5,6 +5,7 @@ import {
   parseMoneyToNumber,
   removeVietnameseTones,
 } from "./data-utils";
+import { getBusinessFromL07, mapL07 } from "./center-utils";
 
 export type PayrollTrackingStatus =
   | "Đã hoàn tất"
@@ -16,45 +17,58 @@ export interface PayrollTrackingRow {
   STT: number;
   "Mã nhân viên": string;
   "Họ và tên": string;
-  "Bộ phận": string;
-  "Tháng lương": string;
-  "Lương phải trả tháng này": number;
-  "Đã trả lương tháng này": number;
-  "Lương giữ lại tháng này": number;
-  "Lương giữ lại tháng trước chuyển sang": number;
-  "Đã thanh toán lương giữ lại tháng trước": number;
-  "Còn giữ lại tháng trước": number;
-  "Tổng thực trả trong tháng": number;
+  L07: string;
+  BU: string;
+  "Tháng báo cáo": string;
+  "Tháng phát sinh": string;
+  "Nghiệp vụ kỳ báo cáo": string;
+  "Lương phải trả kỳ báo cáo": number;
+  "Đã trả lương kỳ báo cáo": number;
+  "Giữ lại phát sinh trong kỳ": number;
+  "Giữ lại chuyển sang": number;
+  "ADD trong kỳ": number;
+  "CANCEL trong kỳ": number;
+  "BONUS trong kỳ": number;
+  "Còn số dư": number;
+  "Tổng thực trả trong kỳ": number;
   "Tổng còn phải thanh toán": number;
-  "Ngày trả lương tháng này": string;
-  "Ngày trả khoản giữ lại tháng trước": string;
+  "Ngày trả lương kỳ báo cáo": string;
+  "Ngày trả khoản ADD": string;
   "Trạng thái": PayrollTrackingStatus;
   "Ghi chú": string;
 }
 
 export interface PayrollTrackingTotals {
-  "Lương phải trả tháng này": number;
-  "Đã trả lương tháng này": number;
-  "Lương giữ lại tháng này": number;
-  "Lương giữ lại tháng trước chuyển sang": number;
-  "Đã thanh toán lương giữ lại tháng trước": number;
-  "Còn giữ lại tháng trước": number;
-  "Tổng thực trả trong tháng": number;
+  "Lương phải trả kỳ báo cáo": number;
+  "Đã trả lương kỳ báo cáo": number;
+  "Giữ lại phát sinh trong kỳ": number;
+  "Giữ lại chuyển sang": number;
+  "ADD trong kỳ": number;
+  "CANCEL trong kỳ": number;
+  "BONUS trong kỳ": number;
+  "Còn số dư": number;
+  "Tổng thực trả trong kỳ": number;
   "Tổng còn phải thanh toán": number;
 }
 
 export interface PayrollYearSummaryRow {
   id: string;
-  "Tháng": string;
+  "Tháng báo cáo": string;
+  "Tháng phát sinh": string;
+  L07: string;
+  BU: string;
+  "Nghiệp vụ": string;
   "Lương phải trả": number;
-  "Đã trả lương tháng": number;
-  "Giữ lại tháng": number;
-  "Giữ lại tháng trước chuyển sang": number;
-  "Đã trả khoản giữ lại tháng trước": number;
-  "Còn giữ lại tháng trước": number;
+  "Đã trả lương": number;
+  "Giữ lại phát sinh": number;
+  "Giữ lại chuyển sang": number;
+  "ADD": number;
+  "CANCEL": number;
+  "BONUS": number;
+  "Còn số dư": number;
   "Tổng thực trả": number;
   "Tổng còn phải thanh toán": number;
-  "Tỷ lệ lương tháng đã trả": number;
+  "Tỷ lệ lương đã trả": number;
 }
 
 export interface BulkPaymentAnalyticsResult {
@@ -83,17 +97,25 @@ type HoldOperation = "HOLD" | "ADD" | "BONUS" | "CANCEL";
 interface IdentityDescriptor {
   employeeId: string;
   fullName: string;
-  department: string;
+  l07: string;
+  business: string;
+}
+
+interface DimensionDescriptor {
+  l07: string;
+  business: string;
 }
 
 interface Sheet1Entry extends IdentityDescriptor {
   identityKey: string;
+  groupKey: string;
   period: MonthPeriod;
   amount: number;
 }
 
 interface BankEntry extends IdentityDescriptor {
   identityKey: string;
+  groupKey: string;
   period: MonthPeriod;
   amount: number;
   paymentDate: string;
@@ -101,6 +123,7 @@ interface BankEntry extends IdentityDescriptor {
 
 interface HoldEntry extends IdentityDescriptor {
   identityKey: string;
+  groupKey: string;
   reportPeriod: MonthPeriod;
   occurrencePeriod: MonthPeriod;
   operation: HoldOperation;
@@ -109,29 +132,39 @@ interface HoldEntry extends IdentityDescriptor {
   note: string;
 }
 
-interface PeriodAccumulator extends IdentityDescriptor {
-  identityKey: string;
-  salaryPayable: number;
-  currentHoldFromSource: number;
-  priorHoldGross: number;
-  priorHoldPaidBeforePeriod: number;
-  priorHoldPaidInPeriod: number;
-  bonusPaidInPeriod: number;
-  bankPaidInPeriod: number;
-  hasBankPayment: boolean;
-  currentPaymentDates: string[];
-  priorHoldPaymentDates: string[];
+interface BalanceBucket {
+  occurrencePeriod: MonthPeriod;
+  holdGross: number;
+  addBeforePeriod: number;
+  cancelBeforePeriod: number;
+  addInPeriod: number;
+  cancelInPeriod: number;
+  addPaymentDates: string[];
+  operations: Set<HoldOperation>;
   notes: Set<string>;
 }
 
+interface PeriodGroup extends IdentityDescriptor {
+  identityKey: string;
+  groupKey: string;
+  salaryPayable: number;
+  bankPaidInPeriod: number;
+  bonusInPeriod: number;
+  hasBankPayment: boolean;
+  salaryPaymentDates: string[];
+  buckets: Map<string, BalanceBucket>;
+}
+
 const MONEY_TOTAL_KEYS: Array<keyof PayrollTrackingTotals> = [
-  "Lương phải trả tháng này",
-  "Đã trả lương tháng này",
-  "Lương giữ lại tháng này",
-  "Lương giữ lại tháng trước chuyển sang",
-  "Đã thanh toán lương giữ lại tháng trước",
-  "Còn giữ lại tháng trước",
-  "Tổng thực trả trong tháng",
+  "Lương phải trả kỳ báo cáo",
+  "Đã trả lương kỳ báo cáo",
+  "Giữ lại phát sinh trong kỳ",
+  "Giữ lại chuyển sang",
+  "ADD trong kỳ",
+  "CANCEL trong kỳ",
+  "BONUS trong kỳ",
+  "Còn số dư",
+  "Tổng thực trả trong kỳ",
   "Tổng còn phải thanh toán",
 ];
 
@@ -231,21 +264,34 @@ const fullNameOf = (row: any): string =>
     ]),
   ).trim();
 
-const departmentOf = (row: any): string =>
-  String(
+const dimensionsOf = (row: any): DimensionDescriptor => {
+  const rawL07 = String(
     readFirst(row, [
-      "Business",
-      "BU",
-      "Bộ phận",
-      "Department",
       "L07",
+      "L07 Code",
+      "Center Code",
+      "Charge to center",
+      "charge_to_center_mkt",
       "Center",
+      "Mã trung tâm",
+      "Mã AE",
       "Mã ae",
     ]),
+  ).trim();
+  const mappedL07 = rawL07 ? mapL07(rawL07) : "";
+  const l07 = String(mappedL07 || rawL07).trim().toUpperCase();
+  const rawBusiness = String(
+    readFirst(row, ["BU", "Business", "Bộ phận", "Department", "BUS"]),
   )
     .trim()
     .toUpperCase()
     .replace(/^AHN_HP$/, "AHP");
+
+  return {
+    l07,
+    business: rawBusiness || (l07 ? getBusinessFromL07(l07) : ""),
+  };
+};
 
 const accountOf = (row: any): string =>
   normalizeAccount(
@@ -258,10 +304,13 @@ const accountOf = (row: any): string =>
     ]),
   );
 
-const identityOf = (row: any): IdentityDescriptor => ({
+const identityOf = (
+  row: any,
+  dimensions: DimensionDescriptor,
+): IdentityDescriptor => ({
   employeeId: employeeIdOf(row),
   fullName: fullNameOf(row),
-  department: departmentOf(row),
+  ...dimensions,
 });
 
 const moneyOf = (row: any): number =>
@@ -279,17 +328,12 @@ const moneyOf = (row: any): number =>
   );
 
 /**
- * Sheet1 TOTAL PAYMENT is a calculated field. If charge columns are present,
- * always rebuild the value from those columns and ignore the imported total.
+ * TOTAL PAYMENT của Sheet 1 luôn được tính lại từ các cột Charge đang hiển thị.
  */
 export const calculateDisplayedChargeTotal = (row: any): number => {
   const chargeColumns = Object.keys(row || {}).filter(
-    (key) =>
-      isChargeAmountColumn(key) &&
-      normalizeText(key) !== "TOTAL PAYMENT",
+    (key) => isChargeAmountColumn(key) && normalizeText(key) !== "TOTAL PAYMENT",
   );
-
-  if (chargeColumns.length === 0) return 0;
   return chargeColumns.reduce(
     (sum, key) => sum + parseMoneyToNumber(row?.[key]),
     0,
@@ -330,10 +374,10 @@ const noteOf = (row: any): string =>
 
 const classifyHoldOperation = (row: any): HoldOperation | null => {
   const explicitCode = normalizeText(row?.["Nghiệp vụ"]);
-  if (explicitCode === "H") return "HOLD";
-  if (explicitCode === "A") return "ADD";
-  if (explicitCode === "B") return "BONUS";
-  if (explicitCode === "C") return "CANCEL";
+  if (explicitCode === "H" || explicitCode === "HOLD") return "HOLD";
+  if (explicitCode === "A" || explicitCode === "ADD") return "ADD";
+  if (explicitCode === "B" || explicitCode === "BONUS") return "BONUS";
+  if (explicitCode === "C" || explicitCode === "CANCEL") return "CANCEL";
 
   const source = normalizeText(row?.["Sheet Source"]);
   const status = normalizeText(
@@ -368,8 +412,7 @@ const classifyHoldOperation = (row: any): HoldOperation | null => {
 const isUsableHoldRow = (row: any): boolean => {
   if (!row || row._dimmed) return false;
   if (normalizeText(row["Lệnh"]) === "-") return false;
-  const source = normalizeText(row["Sheet Source"]);
-  return !source.includes("SHEET 1");
+  return !normalizeText(row["Sheet Source"]).includes("SHEET 1");
 };
 
 const buildIdentityResolver = (rows: any[]) => {
@@ -425,23 +468,22 @@ const buildIdentityResolver = (rows: any[]) => {
     if (normalizedName && nameToIdentity.has(normalizedName)) {
       return nameToIdentity.get(normalizedName)!;
     }
-
-    if (normalizedName) {
-      return `NAME:${normalizedName}|${normalizeText(departmentOf(row))}`;
-    }
+    if (normalizedName) return `NAME:${normalizedName}`;
     if (account) return `ACCOUNT:${account}`;
     return `UNKNOWN:${String(row?.id || row?._recordId || fallbackIndex)}`;
   };
 };
 
 const createEmptyTotals = (): PayrollTrackingTotals => ({
-  "Lương phải trả tháng này": 0,
-  "Đã trả lương tháng này": 0,
-  "Lương giữ lại tháng này": 0,
-  "Lương giữ lại tháng trước chuyển sang": 0,
-  "Đã thanh toán lương giữ lại tháng trước": 0,
-  "Còn giữ lại tháng trước": 0,
-  "Tổng thực trả trong tháng": 0,
+  "Lương phải trả kỳ báo cáo": 0,
+  "Đã trả lương kỳ báo cáo": 0,
+  "Giữ lại phát sinh trong kỳ": 0,
+  "Giữ lại chuyển sang": 0,
+  "ADD trong kỳ": 0,
+  "CANCEL trong kỳ": 0,
+  "BONUS trong kỳ": 0,
+  "Còn số dư": 0,
+  "Tổng thực trả trong kỳ": 0,
   "Tổng còn phải thanh toán": 0,
 });
 
@@ -465,17 +507,37 @@ export function buildBulkPaymentAnalytics({
     periodFromParts(now.getMonth() + 1, now.getFullYear())!;
   const allRows = [...sheet1Rows, ...holdRows, ...bankRows];
   const resolveIdentity = buildIdentityResolver(allRows);
-  const descriptors = new Map<string, IdentityDescriptor>();
+  const dimensionHints = new Map<string, DimensionDescriptor>();
 
-  const rememberDescriptor = (identityKey: string, row: any) => {
-    const incoming = identityOf(row);
-    const existing = descriptors.get(identityKey);
-    descriptors.set(identityKey, {
-      employeeId: existing?.employeeId || incoming.employeeId,
-      fullName: existing?.fullName || incoming.fullName,
-      department: existing?.department || incoming.department,
+  allRows.forEach((row, index) => {
+    const identityKey = resolveIdentity(row, index);
+    const incoming = dimensionsOf(row);
+    const existing = dimensionHints.get(identityKey);
+    dimensionHints.set(identityKey, {
+      l07: existing?.l07 || incoming.l07,
+      business: existing?.business || incoming.business,
     });
+  });
+
+  const resolveDimensions = (
+    row: any,
+    identityKey: string,
+  ): DimensionDescriptor => {
+    const direct = dimensionsOf(row);
+    const hint = dimensionHints.get(identityKey);
+    const l07 = direct.l07 || hint?.l07 || "CHƯA XÁC ĐỊNH";
+    const business =
+      direct.business ||
+      hint?.business ||
+      (l07 !== "CHƯA XÁC ĐỊNH" ? getBusinessFromL07(l07) : "") ||
+      "OTHER";
+    return { l07, business };
   };
+
+  const groupKeyOf = (
+    identityKey: string,
+    dimensions: DimensionDescriptor,
+  ): string => `${identityKey}|L07:${dimensions.l07}|BU:${dimensions.business}`;
 
   const sheet1Entries: Sheet1Entry[] = sheet1Rows.flatMap((row, index) => {
     const period = parseMonthPeriod(
@@ -484,14 +546,14 @@ export function buildBulkPaymentAnalytics({
     );
     if (!period) return [];
     const identityKey = resolveIdentity(row, index);
-    const descriptor = identityOf(row);
-    rememberDescriptor(identityKey, row);
+    const dimensions = resolveDimensions(row, identityKey);
     return [
       {
         identityKey,
+        groupKey: groupKeyOf(identityKey, dimensions),
         period,
         amount: calculateDisplayedChargeTotal(row),
-        ...descriptor,
+        ...identityOf(row, dimensions),
       },
     ];
   });
@@ -503,15 +565,15 @@ export function buildBulkPaymentAnalytics({
     );
     if (!period) return [];
     const identityKey = resolveIdentity(row, sheet1Rows.length + index);
-    const descriptor = identityOf(row);
-    rememberDescriptor(identityKey, row);
+    const dimensions = resolveDimensions(row, identityKey);
     return [
       {
         identityKey,
+        groupKey: groupKeyOf(identityKey, dimensions),
         period,
         amount: Math.abs(moneyOf(row)),
         paymentDate: paymentDateOf(row),
-        ...descriptor,
+        ...identityOf(row, dimensions),
       },
     ];
   });
@@ -520,7 +582,6 @@ export function buildBulkPaymentAnalytics({
     if (!isUsableHoldRow(row)) return [];
     const operation = classifyHoldOperation(row);
     if (!operation) return [];
-
     const reportPeriod = parseMonthPeriod(
       readFirst(row, ["Tháng báo cáo", "_fileMonth", "Tháng", "Month"]),
       defaultPeriod,
@@ -540,232 +601,348 @@ export function buildBulkPaymentAnalytics({
       row,
       sheet1Rows.length + bankRows.length + index,
     );
-    const descriptor = identityOf(row);
-    rememberDescriptor(identityKey, row);
+    const dimensions = resolveDimensions(row, identityKey);
     return [
       {
         identityKey,
+        groupKey: groupKeyOf(identityKey, dimensions),
         reportPeriod,
         occurrencePeriod,
         operation,
         amount: Math.abs(moneyOf(row)),
         paymentDate: paymentDateOf(row),
         note: noteOf(row),
-        ...descriptor,
+        ...identityOf(row, dimensions),
       },
     ];
   });
 
   const buildRowsForPeriod = (period: MonthPeriod): PayrollTrackingRow[] => {
-    const accumulators = new Map<string, PeriodAccumulator>();
+    const groups = new Map<string, PeriodGroup>();
     const hasBankDataForPeriod = bankEntries.some(
       (entry) => comparePeriods(entry.period, period) === 0,
     );
 
-    const ensureAccumulator = (identityKey: string): PeriodAccumulator => {
-      const existing = accumulators.get(identityKey);
+    const ensureGroup = (entry: IdentityDescriptor & {
+      identityKey: string;
+      groupKey: string;
+    }): PeriodGroup => {
+      const existing = groups.get(entry.groupKey);
       if (existing) return existing;
-      const descriptor = descriptors.get(identityKey) || {
-        employeeId: "",
-        fullName: "",
-        department: "",
-      };
-      const next: PeriodAccumulator = {
-        identityKey,
-        ...descriptor,
+      const group: PeriodGroup = {
+        identityKey: entry.identityKey,
+        groupKey: entry.groupKey,
+        employeeId: entry.employeeId,
+        fullName: entry.fullName,
+        l07: entry.l07,
+        business: entry.business,
         salaryPayable: 0,
-        currentHoldFromSource: 0,
-        priorHoldGross: 0,
-        priorHoldPaidBeforePeriod: 0,
-        priorHoldPaidInPeriod: 0,
-        bonusPaidInPeriod: 0,
         bankPaidInPeriod: 0,
+        bonusInPeriod: 0,
         hasBankPayment: false,
-        currentPaymentDates: [],
-        priorHoldPaymentDates: [],
+        salaryPaymentDates: [],
+        buckets: new Map<string, BalanceBucket>(),
+      };
+      groups.set(entry.groupKey, group);
+      return group;
+    };
+
+    const ensureBucket = (
+      group: PeriodGroup,
+      occurrencePeriod: MonthPeriod,
+    ): BalanceBucket => {
+      const existing = group.buckets.get(occurrencePeriod.key);
+      if (existing) return existing;
+      const bucket: BalanceBucket = {
+        occurrencePeriod,
+        holdGross: 0,
+        addBeforePeriod: 0,
+        cancelBeforePeriod: 0,
+        addInPeriod: 0,
+        cancelInPeriod: 0,
+        addPaymentDates: [],
+        operations: new Set<HoldOperation>(),
         notes: new Set<string>(),
       };
-      accumulators.set(identityKey, next);
-      return next;
+      group.buckets.set(occurrencePeriod.key, bucket);
+      return bucket;
     };
 
     sheet1Entries.forEach((entry) => {
       if (comparePeriods(entry.period, period) !== 0) return;
-      ensureAccumulator(entry.identityKey).salaryPayable += entry.amount;
+      ensureGroup(entry).salaryPayable += entry.amount;
     });
 
     bankEntries.forEach((entry) => {
       if (comparePeriods(entry.period, period) !== 0) return;
-      const accumulator = ensureAccumulator(entry.identityKey);
-      accumulator.bankPaidInPeriod += entry.amount;
-      accumulator.hasBankPayment = true;
-      if (entry.paymentDate) accumulator.currentPaymentDates.push(entry.paymentDate);
+      const group = ensureGroup(entry);
+      group.bankPaidInPeriod += entry.amount;
+      group.hasBankPayment = true;
+      if (entry.paymentDate) group.salaryPaymentDates.push(entry.paymentDate);
     });
 
     holdEntries.forEach((entry) => {
       const reportCompare = comparePeriods(entry.reportPeriod, period);
       const occurrenceCompare = comparePeriods(entry.occurrencePeriod, period);
-      if (reportCompare > 0) return;
+      if (reportCompare > 0 || occurrenceCompare > 0) return;
 
-      const accumulator = ensureAccumulator(entry.identityKey);
-      if (entry.operation === "HOLD") {
-        if (occurrenceCompare === 0) {
-          accumulator.currentHoldFromSource += entry.amount;
-        } else if (occurrenceCompare < 0) {
-          accumulator.priorHoldGross += entry.amount;
-        }
-      } else if (
-        (entry.operation === "ADD" || entry.operation === "CANCEL") &&
-        occurrenceCompare < 0
-      ) {
-        const signedRelease =
-          entry.operation === "ADD" ? entry.amount : -entry.amount;
-        if (reportCompare < 0) {
-          accumulator.priorHoldPaidBeforePeriod += signedRelease;
-        } else if (reportCompare === 0) {
-          accumulator.priorHoldPaidInPeriod += signedRelease;
-          if (entry.paymentDate) {
-            accumulator.priorHoldPaymentDates.push(entry.paymentDate);
-          }
-        }
-      } else if (entry.operation === "BONUS" && reportCompare === 0) {
-        accumulator.bonusPaidInPeriod += entry.amount;
+      const group = ensureGroup(entry);
+      if (entry.operation === "BONUS") {
+        if (reportCompare === 0) group.bonusInPeriod += entry.amount;
+        return;
       }
 
-      if (
-        entry.note &&
-        (reportCompare === 0 ||
-          (entry.operation === "HOLD" && occurrenceCompare === 0))
-      ) {
-        accumulator.notes.add(entry.note);
+      const bucket = ensureBucket(group, entry.occurrencePeriod);
+      if (entry.operation === "HOLD") {
+        bucket.holdGross += entry.amount;
+      } else if (entry.operation === "ADD") {
+        if (reportCompare < 0) bucket.addBeforePeriod += entry.amount;
+        else if (reportCompare === 0) {
+          bucket.addInPeriod += entry.amount;
+          if (entry.paymentDate) bucket.addPaymentDates.push(entry.paymentDate);
+        }
+      } else if (entry.operation === "CANCEL") {
+        if (reportCompare < 0) bucket.cancelBeforePeriod += entry.amount;
+        else if (reportCompare === 0) bucket.cancelInPeriod += entry.amount;
+      }
+
+      if (reportCompare === 0) {
+        bucket.operations.add(entry.operation);
+        if (entry.note) bucket.notes.add(entry.note);
       }
     });
 
-    const rows = Array.from(accumulators.values())
-      .map((item) => {
-        const priorHoldCarried = Math.max(
-          item.priorHoldGross -
-            Math.max(item.priorHoldPaidBeforePeriod, 0),
-          0,
-        );
-        const priorHoldPaid = Math.max(item.priorHoldPaidInPeriod, 0);
-
-        const currentSalaryPaid = item.hasBankPayment
+    const rows: PayrollTrackingRow[] = [];
+    groups.forEach((group) => {
+      const totalAddInPeriod = Array.from(group.buckets.values()).reduce(
+        (sum, bucket) => sum + bucket.addInPeriod,
+        0,
+      );
+      const currentSalaryPaid = group.hasBankPayment
+        ? Math.max(
+            group.bankPaidInPeriod - totalAddInPeriod - group.bonusInPeriod,
+            0,
+          )
+        : !hasBankDataForPeriod
           ? Math.max(
-              item.bankPaidInPeriod -
-                priorHoldPaid -
-                item.bonusPaidInPeriod,
+              group.salaryPayable -
+                (group.buckets.get(period.key)?.holdGross || 0),
               0,
             )
-          : !hasBankDataForPeriod
-            ? Math.max(
-                item.salaryPayable - item.currentHoldFromSource,
-                0,
-              )
-            : 0;
+          : 0;
+      const calculatedCurrentHold = Math.max(
+        group.salaryPayable - currentSalaryPaid,
+        0,
+      );
 
-        // All output totals are formulas built from the displayed columns.
-        // No imported TOTAL PAYMENT value is copied into these fields.
-        const currentHold = Math.max(
-          item.salaryPayable - currentSalaryPaid,
+      if (
+        group.salaryPayable !== 0 ||
+        currentSalaryPaid !== 0 ||
+        calculatedCurrentHold !== 0 ||
+        group.bonusInPeriod !== 0
+      ) {
+        ensureBucket(group, period);
+      }
+
+      const orderedBuckets = Array.from(group.buckets.values()).sort(
+        (left, right) => comparePeriods(left.occurrencePeriod, right.occurrencePeriod),
+      );
+
+      orderedBuckets.forEach((bucket) => {
+        const isCurrentOccurrence =
+          comparePeriods(bucket.occurrencePeriod, period) === 0;
+        const carryIn = isCurrentOccurrence
+          ? 0
+          : Math.max(
+              bucket.holdGross -
+                bucket.addBeforePeriod +
+                bucket.cancelBeforePeriod,
+              0,
+            );
+        const currentHold = isCurrentOccurrence
+          ? Math.max(calculatedCurrentHold, bucket.holdGross)
+          : 0;
+        const openingBalance = carryIn + currentHold;
+        const remainingBalance = Math.max(
+          openingBalance - bucket.addInPeriod + bucket.cancelInPeriod,
           0,
         );
-        const priorHoldRemaining = Math.max(
-          priorHoldCarried - priorHoldPaid,
-          0,
-        );
-        const totalPaid = currentSalaryPaid + priorHoldPaid;
-        const totalOutstanding = currentHold + priorHoldRemaining;
+        const salaryPaid = isCurrentOccurrence ? currentSalaryPaid : 0;
+        const salaryPayable = isCurrentOccurrence ? group.salaryPayable : 0;
+        const bonus = isCurrentOccurrence ? group.bonusInPeriod : 0;
+        const totalPaid = salaryPaid + bucket.addInPeriod + bonus;
+        const operationLabels: string[] = Array.from(bucket.operations);
+        if (bonus > 0 && !operationLabels.includes("BONUS")) {
+          operationLabels.push("BONUS");
+        }
+        if (
+          isCurrentOccurrence &&
+          currentHold > 0 &&
+          !operationLabels.includes("HOLD")
+        ) {
+          operationLabels.push("HOLD");
+        }
+        if (operationLabels.length === 0 && carryIn > 0) {
+          operationLabels.push("SỐ DƯ");
+        }
 
         if (
-          item.salaryPayable === 0 &&
-          currentSalaryPaid === 0 &&
+          salaryPayable === 0 &&
+          salaryPaid === 0 &&
           currentHold === 0 &&
-          priorHoldCarried === 0 &&
-          priorHoldPaid === 0 &&
-          priorHoldRemaining === 0
+          carryIn === 0 &&
+          bucket.addInPeriod === 0 &&
+          bucket.cancelInPeriod === 0 &&
+          bonus === 0 &&
+          remainingBalance === 0
         ) {
-          return null;
+          return;
+        }
+
+        const notes = new Set(bucket.notes);
+        const reportLabel = formatPeriod(period);
+        const occurrenceLabel = formatPeriod(bucket.occurrencePeriod);
+        if (carryIn > 0) notes.add(`Số dư của tháng ${occurrenceLabel}`);
+        if (bucket.addInPeriod > 0) {
+          notes.add(`ADD ${reportLabel} cho tháng ${occurrenceLabel}`);
+        }
+        if (bucket.cancelInPeriod > 0) {
+          notes.add(`CANCEL ${reportLabel} của tháng ${occurrenceLabel}`);
+        }
+        if (
+          salaryPayable > 0 &&
+          hasBankDataForPeriod &&
+          !group.hasBankPayment
+        ) {
+          notes.add("Không tìm thấy khoản thanh toán trong bảng Bank");
+        }
+        if (bucket.addInPeriod > openingBalance) {
+          notes.add("Khoản ADD lớn hơn số dư trước thanh toán");
         }
 
         let status: PayrollTrackingStatus = "Thanh toán một phần";
-        if (totalOutstanding === 0) status = "Đã hoàn tất";
+        if (remainingBalance === 0) status = "Đã hoàn tất";
         else if (totalPaid === 0) status = "Chưa thanh toán";
 
-        if (item.salaryPayable > 0 && hasBankDataForPeriod && !item.hasBankPayment) {
-          item.notes.add("Không tìm thấy khoản thanh toán trong bảng Bank");
-        }
-        if (priorHoldPaid > priorHoldCarried) {
-          item.notes.add("Khoản trả giữ lại lớn hơn số chuyển sang");
-        }
-
-        return {
-          id: `${period.key}|${item.identityKey}`,
+        rows.push({
+          id: `${period.key}|${group.groupKey}|${bucket.occurrencePeriod.key}`,
           STT: 0,
-          "Mã nhân viên": item.employeeId,
-          "Họ và tên": item.fullName,
-          "Bộ phận": item.department,
-          "Tháng lương": formatPeriod(period),
-          "Lương phải trả tháng này": item.salaryPayable,
-          "Đã trả lương tháng này": currentSalaryPaid,
-          "Lương giữ lại tháng này": currentHold,
-          "Lương giữ lại tháng trước chuyển sang": priorHoldCarried,
-          "Đã thanh toán lương giữ lại tháng trước": priorHoldPaid,
-          "Còn giữ lại tháng trước": priorHoldRemaining,
-          "Tổng thực trả trong tháng": totalPaid,
-          "Tổng còn phải thanh toán": totalOutstanding,
-          "Ngày trả lương tháng này": item.currentPaymentDates.at(-1) || "",
-          "Ngày trả khoản giữ lại tháng trước":
-            item.priorHoldPaymentDates.at(-1) || "",
+          "Mã nhân viên": group.employeeId,
+          "Họ và tên": group.fullName,
+          L07: group.l07,
+          BU: group.business,
+          "Tháng báo cáo": reportLabel,
+          "Tháng phát sinh": occurrenceLabel,
+          "Nghiệp vụ kỳ báo cáo": operationLabels.join(" + "),
+          "Lương phải trả kỳ báo cáo": salaryPayable,
+          "Đã trả lương kỳ báo cáo": salaryPaid,
+          "Giữ lại phát sinh trong kỳ": currentHold,
+          "Giữ lại chuyển sang": carryIn,
+          "ADD trong kỳ": bucket.addInPeriod,
+          "CANCEL trong kỳ": bucket.cancelInPeriod,
+          "BONUS trong kỳ": bonus,
+          "Còn số dư": remainingBalance,
+          "Tổng thực trả trong kỳ": totalPaid,
+          "Tổng còn phải thanh toán": remainingBalance,
+          "Ngày trả lương kỳ báo cáo":
+            isCurrentOccurrence ? group.salaryPaymentDates.at(-1) || "" : "",
+          "Ngày trả khoản ADD": bucket.addPaymentDates.at(-1) || "",
           "Trạng thái": status,
-          "Ghi chú": Array.from(item.notes).slice(0, 4).join("; "),
-        } satisfies PayrollTrackingRow;
-      })
-      .filter((row): row is PayrollTrackingRow => row !== null)
-      .sort((left, right) => {
-        const departmentCompare = left["Bộ phận"].localeCompare(
-          right["Bộ phận"],
-          "vi",
-        );
-        if (departmentCompare !== 0) return departmentCompare;
-        const nameCompare = left["Họ và tên"].localeCompare(
-          right["Họ và tên"],
-          "vi",
-        );
-        if (nameCompare !== 0) return nameCompare;
-        return left["Mã nhân viên"].localeCompare(right["Mã nhân viên"], "vi");
+          "Ghi chú": Array.from(notes).slice(0, 6).join("; "),
+        });
       });
+    });
 
-    return rows.map((row, index) => ({ ...row, STT: index + 1 }));
+    return rows
+      .sort((left, right) => {
+        const buCompare = left.BU.localeCompare(right.BU, "vi");
+        if (buCompare !== 0) return buCompare;
+        const l07Compare = left.L07.localeCompare(right.L07, "vi");
+        if (l07Compare !== 0) return l07Compare;
+        const monthCompare = left["Tháng phát sinh"].localeCompare(
+          right["Tháng phát sinh"],
+          "vi",
+        );
+        if (monthCompare !== 0) return monthCompare;
+        return left["Họ và tên"].localeCompare(right["Họ và tên"], "vi");
+      })
+      .map((row, index) => ({ ...row, STT: index + 1 }));
   };
 
   const currentRows = buildRowsForPeriod(defaultPeriod);
   const currentTotals = sumTrackingRows(currentRows);
-  const yearRows: PayrollYearSummaryRow[] = [];
+  const yearSummaryMap = new Map<string, PayrollYearSummaryRow>();
 
   for (let month = 1; month <= 12; month++) {
-    const period = periodFromParts(month, defaultPeriod.year)!;
-    const totals = sumTrackingRows(buildRowsForPeriod(period));
-    yearRows.push({
-      id: period.key,
-      "Tháng": `Tháng ${month}`,
-      "Lương phải trả": totals["Lương phải trả tháng này"],
-      "Đã trả lương tháng": totals["Đã trả lương tháng này"],
-      "Giữ lại tháng": totals["Lương giữ lại tháng này"],
-      "Giữ lại tháng trước chuyển sang":
-        totals["Lương giữ lại tháng trước chuyển sang"],
-      "Đã trả khoản giữ lại tháng trước":
-        totals["Đã thanh toán lương giữ lại tháng trước"],
-      "Còn giữ lại tháng trước": totals["Còn giữ lại tháng trước"],
-      "Tổng thực trả": totals["Tổng thực trả trong tháng"],
-      "Tổng còn phải thanh toán": totals["Tổng còn phải thanh toán"],
-      "Tỷ lệ lương tháng đã trả":
-        totals["Lương phải trả tháng này"] === 0
+    const reportPeriod = periodFromParts(month, defaultPeriod.year)!;
+    buildRowsForPeriod(reportPeriod).forEach((row) => {
+      const key = [
+        row["Tháng báo cáo"],
+        row["Tháng phát sinh"],
+        row.L07,
+        row.BU,
+      ].join("|");
+      const existing = yearSummaryMap.get(key) || {
+        id: key,
+        "Tháng báo cáo": row["Tháng báo cáo"],
+        "Tháng phát sinh": row["Tháng phát sinh"],
+        L07: row.L07,
+        BU: row.BU,
+        "Nghiệp vụ": "",
+        "Lương phải trả": 0,
+        "Đã trả lương": 0,
+        "Giữ lại phát sinh": 0,
+        "Giữ lại chuyển sang": 0,
+        ADD: 0,
+        CANCEL: 0,
+        BONUS: 0,
+        "Còn số dư": 0,
+        "Tổng thực trả": 0,
+        "Tổng còn phải thanh toán": 0,
+        "Tỷ lệ lương đã trả": 0,
+      };
+      const operations = new Set(
+        existing["Nghiệp vụ"].split(" + ").filter(Boolean),
+      );
+      row["Nghiệp vụ kỳ báo cáo"]
+        .split(" + ")
+        .filter(Boolean)
+        .forEach((operation) => operations.add(operation));
+      existing["Nghiệp vụ"] = Array.from(operations).join(" + ");
+      existing["Lương phải trả"] += row["Lương phải trả kỳ báo cáo"];
+      existing["Đã trả lương"] += row["Đã trả lương kỳ báo cáo"];
+      existing["Giữ lại phát sinh"] += row["Giữ lại phát sinh trong kỳ"];
+      existing["Giữ lại chuyển sang"] += row["Giữ lại chuyển sang"];
+      existing.ADD += row["ADD trong kỳ"];
+      existing.CANCEL += row["CANCEL trong kỳ"];
+      existing.BONUS += row["BONUS trong kỳ"];
+      existing["Còn số dư"] += row["Còn số dư"];
+      existing["Tổng thực trả"] += row["Tổng thực trả trong kỳ"];
+      existing["Tổng còn phải thanh toán"] +=
+        row["Tổng còn phải thanh toán"];
+      existing["Tỷ lệ lương đã trả"] =
+        existing["Lương phải trả"] === 0
           ? 0
-          : totals["Đã trả lương tháng này"] /
-            totals["Lương phải trả tháng này"],
+          : existing["Đã trả lương"] / existing["Lương phải trả"];
+      yearSummaryMap.set(key, existing);
     });
   }
+
+  const yearRows = Array.from(yearSummaryMap.values()).sort((left, right) => {
+    const reportCompare = left["Tháng báo cáo"].localeCompare(
+      right["Tháng báo cáo"],
+      "vi",
+    );
+    if (reportCompare !== 0) return reportCompare;
+    const occurrenceCompare = left["Tháng phát sinh"].localeCompare(
+      right["Tháng phát sinh"],
+      "vi",
+    );
+    if (occurrenceCompare !== 0) return occurrenceCompare;
+    const buCompare = left.BU.localeCompare(right.BU, "vi");
+    if (buCompare !== 0) return buCompare;
+    return left.L07.localeCompare(right.L07, "vi");
+  });
 
   return {
     currentPeriod: formatPeriod(defaultPeriod),

@@ -93,7 +93,7 @@ export default async function handler(req: any, res: any) {
     
     const response = await drive.files.list({
       q: `'${folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
-      fields: 'files(id, name, mimeType, shortcutDetails)',
+      fields: 'files(id, name, mimeType, modifiedTime, createdTime, shortcutDetails)',
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
     });

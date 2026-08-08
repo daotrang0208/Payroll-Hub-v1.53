@@ -2975,7 +2975,7 @@ export function BulkPayment({
                       value="visuals"
                       className="font-semibold text-[10px] text-slate-800 bg-white"
                     >
-                      ANALYS_BULKPAYMENT
+                      ANALYS
                     </option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-600 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />

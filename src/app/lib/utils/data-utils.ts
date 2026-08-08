@@ -1,6 +1,30 @@
 export function parseMoneyToNumber(val: any): number {
   if (typeof val === "number") return Number.isFinite(val) ? val : 0;
   if (typeof val === "bigint") return Number(val);
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return 0;
+
+    // SheetJS returns a Date when an Excel numeric cell has a date format and
+    // `cellDates: true` is enabled. Rebuild the original Excel serial from the
+    // local date components so charge values such as OTHER are not interpreted
+    // as calendar dates. The small tolerance removes historical timezone
+    // rounding errors (typically a few seconds for dates around 1900).
+    const excelEpoch = Date.UTC(1899, 11, 30);
+    const localComponentsAsUtc = Date.UTC(
+      val.getFullYear(),
+      val.getMonth(),
+      val.getDate(),
+      val.getHours(),
+      val.getMinutes(),
+      val.getSeconds(),
+      val.getMilliseconds(),
+    );
+    const serial = (localComponentsAsUtc - excelEpoch) / 86_400_000;
+    const nearestInteger = Math.round(serial);
+    return Math.abs(serial - nearestInteger) < 0.0001
+      ? nearestInteger
+      : serial;
+  }
   if (val === null || val === undefined || val === "") return 0;
 
   const source = String(val).trim();
@@ -151,8 +175,51 @@ export async function getExcelFileBuffer(
     throw new Error("Không tìm thấy thông tin file để đọc.");
   }
 
+  const buffer = await file.arrayBuffer();
+  if (file.name.toLowerCase().endsWith(".gsheet")) {
+    const pointerText = new TextDecoder("utf-8").decode(buffer).trim();
+    if (pointerText.startsWith("{")) {
+      let pointer: {
+        url?: unknown;
+        doc_id?: unknown;
+        resource_id?: unknown;
+      } | null = null;
+      try {
+        pointer = JSON.parse(pointerText) as typeof pointer;
+      } catch {
+        // Nội dung .gsheet đã là CSV thật, không phải file con trỏ JSON.
+      }
+
+      if (pointer) {
+        const url = String(pointer.url || "").trim();
+        const documentId = String(pointer.doc_id || "").trim();
+        const resourceId = String(pointer.resource_id || "")
+          .replace(/^spreadsheet:/i, "")
+          .trim();
+        const source =
+          url ||
+          (documentId
+            ? `https://docs.google.com/spreadsheets/d/${documentId}`
+            : resourceId
+              ? `https://docs.google.com/spreadsheets/d/${resourceId}`
+              : "");
+
+        if (source) {
+          const downloadedFile = await fetchGoogleSheetAsFile(
+            source,
+            file.name,
+          );
+          return {
+            buffer: await downloadedFile.arrayBuffer(),
+            name: downloadedFile.name,
+          };
+        }
+      }
+    }
+  }
+
   return {
-    buffer: await file.arrayBuffer(),
+    buffer,
     name: file.name,
   };
 }
@@ -367,6 +434,99 @@ export function scoreMatch(
 export function normalizeId(id: any): string { return String(id); }
 export function toVietnamDateString(date: Date): string { return String(date); }
 export function generateUUID(): string { return Math.random().toString(); }
-export async function fetchGoogleSheetAsFile(url: string, name: string): Promise<File> { return new File([], name); }
-export function isMoneyColumn(col: string): boolean { return false; }
+export async function fetchGoogleSheetAsFile(
+  url: string,
+  name: string,
+): Promise<File> {
+  const sourceUrl = String(url || "").trim();
+  if (!sourceUrl) {
+    throw new Error("URL Google Sheet đang để trống.");
+  }
+
+  const response = await fetch("/api/gs-export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: sourceUrl }),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    let message = responseText;
+    try {
+      const parsed = JSON.parse(responseText) as { error?: unknown };
+      message = String(parsed.error || responseText);
+    } catch {
+      // Giữ nguyên nội dung lỗi dạng text từ API.
+    }
+    throw new Error(message || "Không thể tải dữ liệu Google Sheet.");
+  }
+
+  const contentType = (
+    response.headers.get("content-type") ||
+    "text/csv; charset=utf-8"
+  ).toLowerCase();
+  const encodedSourceName = response.headers.get("x-spreadsheet-name") || "";
+  let sourceName = "";
+  if (encodedSourceName) {
+    try {
+      sourceName = decodeURIComponent(encodedSourceName);
+    } catch {
+      sourceName = encodedSourceName;
+    }
+  }
+
+  const isExcel =
+    contentType.includes("spreadsheetml") ||
+    contentType.includes("application/vnd.ms-excel");
+  const extension = isExcel ? ".xlsx" : ".csv";
+  const requestedName = String(sourceName || name || "GoogleSheet").trim();
+  const finalName = /\.(xlsx?|xls|csv|txt|gsheet)$/i.test(requestedName)
+    ? isExcel
+      ? requestedName.replace(/\.(csv|txt|gsheet)$/i, extension)
+      : requestedName.replace(/\.(xlsx?|xls)$/i, extension)
+    : `${requestedName}${extension}`;
+  const fileBuffer = await response.arrayBuffer();
+
+  if (fileBuffer.byteLength === 0) {
+    throw new Error("Google Sheet trả về file rỗng.");
+  }
+
+  return new File([fileBuffer], finalName, {
+    type: isExcel
+      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : "text/csv;charset=utf-8",
+  });
+}
+export function isMoneyColumn(col: string): boolean {
+  const normalized = normalizeColumnRuleKey(col);
+  if (!normalized || isNonSummableTextColumn(col)) return false;
+
+  if (
+    normalized.includes("DATE") ||
+    normalized.includes("NGAY") ||
+    normalized === "FROM" ||
+    normalized === "TO" ||
+    normalized.includes("ID NUMBER") ||
+    normalized.includes("ACCOUNT NUMBER") ||
+    normalized.includes("BANK ACCOUNT") ||
+    normalized.includes("CENTER") ||
+    normalized.includes("CITAD") ||
+    normalized.includes("TAX CODE") ||
+    normalized.includes("CONTRACT")
+  ) {
+    return false;
+  }
+
+  return (
+    isChargeAmountColumn(col) ||
+    normalized.includes("TOTAL") ||
+    normalized.includes("PAYMENT") ||
+    normalized.includes("AMOUNT") ||
+    normalized.includes("SALARY") ||
+    normalized.includes("LUONG") ||
+    normalized.includes("SO TIEN") ||
+    normalized.includes("TIEN THUONG") ||
+    normalized.includes("BONUS")
+  );
+}
 export async function fetchWithBackoff(fn: any): Promise<any> { return await fn(); }

@@ -277,9 +277,10 @@ export default function TimesheetSummaryPage({ onBack }: TimesheetSummaryPagePro
               toast.error(`Lỗi xử lý ${item.file.name}: ${msg}`);
             }
             
-            // 3. Wait 1500ms before next file to avoid rate limits (except for the last one)
+            // Nhường main thread ngắn giữa hai file; API đã tự retry/backoff khi
+            // Google trả 429 nên không cần chờ cứng 1,5 giây cho từng file.
             if (i < toProcess.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1500));
+              await new Promise(resolve => setTimeout(resolve, 150));
             }
           }
           

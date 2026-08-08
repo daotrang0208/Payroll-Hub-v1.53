@@ -58,7 +58,10 @@ import {
   mapL07,
   getCenterInfoByL07,
   getCenterInfoByAECode,
+  getBusinessFromL07,
+  isNorthMktLocalL07,
   resolveMktAndCenterL07,
+  resolveNorthMktLocalL07,
 } from "../../lib/utils/center-utils";
 import { parseDurationToHours } from "../../lib/schemas/excel-schema";
 import { toast } from "sonner";
@@ -2010,16 +2013,28 @@ export function AEDataConfig({
                         obj[th] = val;
                       });
 
+                      // CENTER in Sheet 1 is authoritative for the MKT rule.
+                      // Fall back to the legacy L07/AE detector only when the
+                      // file does not contain a CENTER column.
+                      const explicitCenterColIndex =
+                        colIndices["Center"] ?? -1;
                       const rawCenterVal =
-                        centerColIndex !== -1
-                          ? String(row[centerColIndex] || "").trim()
-                          : "";
+                        explicitCenterColIndex !== -1
+                          ? String(row[explicitCenterColIndex] || "").trim()
+                          : centerColIndex !== -1
+                            ? String(row[centerColIndex] || "").trim()
+                            : "";
                       obj["_rawAE"] = rawCenterVal;
 
                       let l07 = rawCenterVal;
                       let business = "";
+                      const northMktL07 =
+                        resolveNorthMktLocalL07(rawCenterVal);
 
-                      if (rawCenterVal) {
+                      if (northMktL07) {
+                        l07 = northMktL07;
+                        business = getBusinessFromL07(northMktL07);
+                      } else if (rawCenterVal) {
                         const rawCenterKey = rawCenterVal.toLowerCase();
                         if (aeMap[rawCenterKey]) {
                           const mappedName = aeMap[rawCenterKey].name;
@@ -2044,10 +2059,12 @@ export function AEDataConfig({
                         }
                       }
 
-                      // OVERRIDE FOR MKT
-                      if (rawCenterVal.toUpperCase().trim() === "MKT LOCAL NORTH") {
-                        l07 = "MKT LOCAL NORTH";
-                        business = "AHN";
+                      // Sheet 1 / Gross Pay MKT mapping has priority over the
+                      // generic Center resolver. Pivot Master uses a separate
+                      // processing path and is not changed by this rule.
+                      if (northMktL07) {
+                        l07 = northMktL07;
+                        business = getBusinessFromL07(northMktL07);
                       } else {
                         const mktRes3 = resolveMktAndCenterL07(rawCenterVal, "", item.name || "", l07);
                         if (mktRes3.isMktLocal) {
@@ -2143,14 +2160,12 @@ export function AEDataConfig({
       ];
 
       sheet1Data.forEach((row) => {
-        // TẠI CỘT L07 SẼ CHUYỂN HẾT SỐ LIỆU TỪ CỘT OTHER VỀ CỘT CHARGE MKT LOCAL
+        // Với mọi L07 MKT Local North, chuyển toàn bộ số liệu nguồn OTHER sang
+        // Charge MKT Local. Giá trị âm cũng phải được giữ nguyên.
         const l07Upper = String(row["L07"] || "").trim().toUpperCase();
-        if (
-          
-          l07Upper === "MKT LOCAL NORTH"
-        ) {
+        if (isNorthMktLocalL07(l07Upper)) {
           const otherAmt = parseMoneyToNumber(row["CHARGE TO OTHER"] || 0);
-          if (otherAmt > 0) {
+          if (otherAmt !== 0) {
             const currentMkt = parseMoneyToNumber(row["Charge MKT Local"] || 0);
             row["Charge MKT Local"] = currentMkt + otherAmt;
             row["CHARGE TO OTHER"] = 0;
