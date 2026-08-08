@@ -51,32 +51,28 @@ export interface PayrollTrackingTotals {
   "Tổng còn phải thanh toán": number;
 }
 
-export interface PayrollYearSummaryRow {
+export interface PayrollBuMonthSummaryRow {
   id: string;
-  "Tháng báo cáo": string;
   "Tháng phát sinh": string;
-  L07: string;
   BU: string;
-  "Nghiệp vụ": string;
-  "Lương phải trả": number;
-  "Đã trả lương": number;
+  "Tổng chi phí Gross Pay": number;
+  "Thanh toán lương": number;
   "Giữ lại phát sinh": number;
-  "Giữ lại chuyển sang": number;
-  "ADD": number;
-  "CANCEL": number;
+  "Số dư giữ lại đầu kỳ": number;
+  "Thanh toán HOLD": number;
+  "CANCEL HOLD": number;
   "BONUS": number;
-  "Còn số dư": number;
-  "Tổng thực trả": number;
-  "Tổng còn phải thanh toán": number;
-  "Tỷ lệ lương đã trả": number;
+  "Số dư giữ lại cuối kỳ": number;
+  "Tổng tiền thanh toán": number;
+  "Chênh lệch đối soát Gross Pay": number;
 }
 
 export interface BulkPaymentAnalyticsResult {
   currentPeriod: string;
   currentRows: PayrollTrackingRow[];
   currentTotals: PayrollTrackingTotals;
-  year: number;
-  yearRows: PayrollYearSummaryRow[];
+  businessUnits: string[];
+  summaryRows: PayrollBuMonthSummaryRow[];
 }
 
 interface BuildBulkPaymentAnalyticsParams {
@@ -871,84 +867,61 @@ export function buildBulkPaymentAnalytics({
 
   const currentRows = buildRowsForPeriod(defaultPeriod);
   const currentTotals = sumTrackingRows(currentRows);
-  const yearSummaryMap = new Map<string, PayrollYearSummaryRow>();
+  const summaryMap = new Map<string, PayrollBuMonthSummaryRow>();
 
-  for (let month = 1; month <= 12; month++) {
-    const reportPeriod = periodFromParts(month, defaultPeriod.year)!;
-    buildRowsForPeriod(reportPeriod).forEach((row) => {
-      const key = [
-        row["Tháng báo cáo"],
-        row["Tháng phát sinh"],
-        row.L07,
-        row.BU,
-      ].join("|");
-      const existing = yearSummaryMap.get(key) || {
-        id: key,
-        "Tháng báo cáo": row["Tháng báo cáo"],
-        "Tháng phát sinh": row["Tháng phát sinh"],
-        L07: row.L07,
-        BU: row.BU,
-        "Nghiệp vụ": "",
-        "Lương phải trả": 0,
-        "Đã trả lương": 0,
-        "Giữ lại phát sinh": 0,
-        "Giữ lại chuyển sang": 0,
-        ADD: 0,
-        CANCEL: 0,
-        BONUS: 0,
-        "Còn số dư": 0,
-        "Tổng thực trả": 0,
-        "Tổng còn phải thanh toán": 0,
-        "Tỷ lệ lương đã trả": 0,
-      };
-      const operations = new Set(
-        existing["Nghiệp vụ"].split(" + ").filter(Boolean),
-      );
-      row["Nghiệp vụ kỳ báo cáo"]
-        .split(" + ")
-        .filter(Boolean)
-        .forEach((operation) => operations.add(operation));
-      existing["Nghiệp vụ"] = Array.from(operations).join(" + ");
-      existing["Lương phải trả"] += row["Lương phải trả kỳ báo cáo"];
-      existing["Đã trả lương"] += row["Đã trả lương kỳ báo cáo"];
-      existing["Giữ lại phát sinh"] += row["Giữ lại phát sinh trong kỳ"];
-      existing["Giữ lại chuyển sang"] += row["Giữ lại chuyển sang"];
-      existing.ADD += row["ADD trong kỳ"];
-      existing.CANCEL += row["CANCEL trong kỳ"];
-      existing.BONUS += row["BONUS trong kỳ"];
-      existing["Còn số dư"] += row["Còn số dư"];
-      existing["Tổng thực trả"] += row["Tổng thực trả trong kỳ"];
-      existing["Tổng còn phải thanh toán"] +=
-        row["Tổng còn phải thanh toán"];
-      existing["Tỷ lệ lương đã trả"] =
-        existing["Lương phải trả"] === 0
-          ? 0
-          : existing["Đã trả lương"] / existing["Lương phải trả"];
-      yearSummaryMap.set(key, existing);
-    });
-  }
+  currentRows.forEach((row) => {
+    const key = `${row.BU}|${row["Tháng phát sinh"]}`;
+    const existing = summaryMap.get(key) || {
+      id: key,
+      "Tháng phát sinh": row["Tháng phát sinh"],
+      BU: row.BU,
+      "Tổng chi phí Gross Pay": 0,
+      "Thanh toán lương": 0,
+      "Giữ lại phát sinh": 0,
+      "Số dư giữ lại đầu kỳ": 0,
+      "Thanh toán HOLD": 0,
+      "CANCEL HOLD": 0,
+      BONUS: 0,
+      "Số dư giữ lại cuối kỳ": 0,
+      "Tổng tiền thanh toán": 0,
+      "Chênh lệch đối soát Gross Pay": 0,
+    };
 
-  const yearRows = Array.from(yearSummaryMap.values()).sort((left, right) => {
-    const reportCompare = left["Tháng báo cáo"].localeCompare(
-      right["Tháng báo cáo"],
-      "vi",
-    );
-    if (reportCompare !== 0) return reportCompare;
-    const occurrenceCompare = left["Tháng phát sinh"].localeCompare(
-      right["Tháng phát sinh"],
-      "vi",
-    );
-    if (occurrenceCompare !== 0) return occurrenceCompare;
-    const buCompare = left.BU.localeCompare(right.BU, "vi");
-    if (buCompare !== 0) return buCompare;
-    return left.L07.localeCompare(right.L07, "vi");
+    existing["Tổng chi phí Gross Pay"] +=
+      row["Lương phải trả kỳ báo cáo"];
+    existing["Thanh toán lương"] += row["Đã trả lương kỳ báo cáo"];
+    existing["Giữ lại phát sinh"] += row["Giữ lại phát sinh trong kỳ"];
+    existing["Số dư giữ lại đầu kỳ"] += row["Giữ lại chuyển sang"];
+    existing["Thanh toán HOLD"] += row["ADD trong kỳ"];
+    existing["CANCEL HOLD"] += row["CANCEL trong kỳ"];
+    existing.BONUS += row["BONUS trong kỳ"];
+    existing["Số dư giữ lại cuối kỳ"] += row["Còn số dư"];
+    existing["Tổng tiền thanh toán"] += row["Tổng thực trả trong kỳ"];
+    existing["Chênh lệch đối soát Gross Pay"] =
+      existing["Tổng chi phí Gross Pay"] -
+      existing["Thanh toán lương"] -
+      existing["Giữ lại phát sinh"];
+    summaryMap.set(key, existing);
   });
+
+  const summaryRows = Array.from(summaryMap.values()).sort((left, right) => {
+    const leftPeriod = parseMonthPeriod(left["Tháng phát sinh"]);
+    const rightPeriod = parseMonthPeriod(right["Tháng phát sinh"]);
+    if (leftPeriod && rightPeriod) {
+      const periodCompare = comparePeriods(leftPeriod, rightPeriod);
+      if (periodCompare !== 0) return periodCompare;
+    }
+    return left.BU.localeCompare(right.BU, "vi");
+  });
+  const businessUnits = Array.from(
+    new Set(summaryRows.map((row) => row.BU).filter(Boolean)),
+  ).sort((left, right) => left.localeCompare(right, "vi"));
 
   return {
     currentPeriod: formatPeriod(defaultPeriod),
     currentRows,
     currentTotals,
-    year: defaultPeriod.year,
-    yearRows,
+    businessUnits,
+    summaryRows,
   };
 }
