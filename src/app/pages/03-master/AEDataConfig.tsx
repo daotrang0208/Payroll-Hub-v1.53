@@ -33,7 +33,10 @@ import {
   formatIdNumber,
 } from "../../lib/utils/data-utils";
 import {
+  findBonusAmountColumn,
+  findBonusMasterHeaderRow,
   isBankMasterSheetName,
+  isBonusMasterSheetName,
   isHoldMasterSheetName,
   isRosterMasterSheetName,
   isSheetOneMasterSheetName,
@@ -1349,18 +1352,9 @@ export function AEDataConfig({
               }
 
               if (
-                !isMktFile &&
-                (normalizedSheetName.includes("SUMMER") ||
-                  normalizedSheetName.includes("BONUS"))
+                isBonusMasterSheetName(sheetName)
               ) {
-                let headerRowIndex = -1;
-                for (let r = 0; r < Math.min(50, rows.length); r++) {
-                  const rowStr = rows[r].map(c => String(c || "").toUpperCase()).join(" ");
-                  if (rowStr.includes("BONUS") && (rowStr.includes("INSTRUCTOR") || rowStr.includes("CENTER"))) {
-                    headerRowIndex = r;
-                    break;
-                  }
-                }
+                const headerRowIndex = findBonusMasterHeaderRow(rows, 100);
 
                 if (headerRowIndex !== -1) {
                   foundAnySheet = true;
@@ -1370,7 +1364,25 @@ export function AEDataConfig({
                   const iCenter = getColIndex(h, "Center", itemColumnMapping, ["NORTH CENTER", "DEPARTMENT NAME", "CENTER", "CENTER NOTE", "CENTERS", "TRUNG TÂM", "MÃ AE", "L07"]);
                   const iName = getColIndex(h, "Full name", itemColumnMapping, ["HỌ & TÊN INSTRUCTOR", "NAME", "INSTRUCTOR"]);
                   const iId = getColIndex(h, "ID Number", itemColumnMapping, ["SỐ CCCD INSTRUCTOR", "ID NUMBER", "CCCD"]);
-                  const iBonus = getColIndex(h, "TOTAL PAYMENT", itemColumnMapping, ["BONUS"]);
+                  const detectedBonusIndex = findBonusAmountColumn(h);
+                  const iBonus =
+                    detectedBonusIndex !== -1
+                      ? detectedBonusIndex
+                      : getColIndex(
+                          h,
+                          "TOTAL PAYMENT",
+                          itemColumnMapping,
+                          [
+                            "BONUS",
+                            "BONUS AMOUNT",
+                            "TOTAL BONUS",
+                            "AMOUNT",
+                            "SỐ TIỀN BONUS",
+                            "SỐ TIỀN THƯỞNG",
+                            "TIỀN THƯỞNG",
+                            "THƯỞNG",
+                          ],
+                        );
                   const iEmail = getColIndex(h, "Email", itemColumnMapping, ["INSTRUCTOR'S EMAIL", "EMAIL"]);
 
                   for (let r = headerRowIndex + 1; r < rows.length; r++) {
@@ -2334,9 +2346,10 @@ export function AEDataConfig({
           status: statusById.get(row.id) || row.status,
         }));
 
-        // File MKT Local chỉ tạo dữ liệu cho Pivot Master. Không ghi đè hoặc
-        // làm thay đổi Bank, Sheet 1, Hold, So sánh và Q_Roster.
-        if (!hasNonMktTargets) {
+        // File MKT Local vẫn được phép bổ sung các sheet Bonus vào Hold AE.
+        // Nếu không có Bonus, file MKT chỉ cập nhật Pivot và không làm thay đổi
+        // Bank, Sheet 1, Hold hoặc bảng đối soát.
+        if (!hasNonMktTargets && verifiedHoldData.length === 0) {
           return {
             ...prev,
             Ae_Global_Inputs: nextInputRows,
@@ -2369,11 +2382,18 @@ export function AEDataConfig({
         const holdKeyFn = (r: any) => {
           if (!r) return "";
           const id = String(r["ID Number"] || "").trim().toUpperCase();
+          const fullName = String(r["Full name"] || r["Full Name"] || "")
+            .trim()
+            .toUpperCase();
           const month = normalizeMonth(r["Tháng báo cáo"] || r["_fileMonth"] || currentMonth);
           const tp = Math.round(parseMoneyToNumber(r["TOTAL PAYMENT"] || 0));
           const note = String(r["Note"] || "").trim().toUpperCase();
           const nv = String(r["Nghiệp vụ"] || "").trim().toUpperCase() || "HOLD";
-          return `${id}|${month}|${tp}|${note}|${nv}`;
+          const sheetSource = String(r["Sheet Source"] || "").trim().toUpperCase();
+          const fileName = String(r["TÊN FILE"] || r._sourceFile || "")
+            .trim()
+            .toUpperCase();
+          return `${id}|${fullName}|${month}|${tp}|${note}|${nv}|${sheetSource}|${fileName}`;
         };
 
         // Group and map existing data by ID/Key and Timestamp
@@ -2454,32 +2474,38 @@ export function AEDataConfig({
         return {
           ...prev,
           Ae_Global_Inputs: nextInputRows,
-          Bank_North_AE: {
-            headers: [
-              "No",
-              "L07",
-              "Business",
-              "ID Number",
-              "Full name",
-              "Bank Account Number",
-              "TOTAL PAYMENT",
-              "LOẠI CK",
-              "Payment details",
-            ],
-            data: finalBankData,
-          },
-          Sheet1_AE: { headers: sheet1Headers, data: mergedSheet1Data },
-          SoSanh_AE: {
-            headers: [
-              "ID Number",
-              "Full name",
-              "Sheet 1 AE",
-              "Bank North AE",
-              "Chênh Lệch",
-              "Ghi chú",
-            ],
-            data: finalSoSanhAeData,
-          },
+          Bank_North_AE: hasNonMktTargets
+            ? {
+                headers: [
+                  "No",
+                  "L07",
+                  "Business",
+                  "ID Number",
+                  "Full name",
+                  "Bank Account Number",
+                  "TOTAL PAYMENT",
+                  "LOẠI CK",
+                  "Payment details",
+                ],
+                data: finalBankData,
+              }
+            : prev.Bank_North_AE,
+          Sheet1_AE: hasNonMktTargets
+            ? { headers: sheet1Headers, data: mergedSheet1Data }
+            : prev.Sheet1_AE,
+          SoSanh_AE: hasNonMktTargets
+            ? {
+                headers: [
+                  "ID Number",
+                  "Full name",
+                  "Sheet 1 AE",
+                  "Bank North AE",
+                  "Chênh Lệch",
+                  "Ghi chú",
+                ],
+                data: finalSoSanhAeData,
+              }
+            : prev.SoSanh_AE,
           Hold_AE: {
             headers: [
               "No.",
