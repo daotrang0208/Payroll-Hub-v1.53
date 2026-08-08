@@ -629,7 +629,7 @@ export function PivotSheet() {
           }
         } else {
           targetSheetName = workbook.SheetNames.find(n => 
-            n.toUpperCase() === 'SHEET 1' || n.toUpperCase() === 'SHEET1'
+            n.toUpperCase() === 'SHEET 1' || n.toUpperCase() === 'SHEET1' || n.toUpperCase() === 'INTERN' || n.toUpperCase() === 'REPORT'
           ) || workbook.SheetNames.find(n => n.toUpperCase().includes('DATA') || n.toUpperCase().includes('DỮ LIỆU')) || workbook.SheetNames[0];
         }
 

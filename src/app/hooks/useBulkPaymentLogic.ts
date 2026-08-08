@@ -339,7 +339,7 @@ export function useBulkPaymentLogic() {
 
       const command = String(row["Lệnh"] || "").trim().toUpperCase();
       if (command === "-") return;
-      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1")) return;
+      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1") || sheetSource.includes("intern") || sheetSource.includes("report")) return;
       if (row._dimmed) return;
 
       let biz = row["BU"] || row["Business"] || "";
@@ -481,7 +481,7 @@ export function useBulkPaymentLogic() {
         const sheetSource = String(r["Sheet Source"] || "").toLowerCase();
         const tttt = String(r["Tình trạng thanh toán"] || "").trim();
 
-        if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1")) return sum;
+        if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1") || sheetSource.includes("intern") || sheetSource.includes("report")) return sum;
         if (r._dimmed) return sum;
 
         let amount = parseMoneyToNumber(r["TOTAL PAYMENT"] || r["Payment Amount"] || r["Grand Total"] || r["GRAND TOTAL"] || r["Total Payment"] || 0);
@@ -588,7 +588,7 @@ export function useBulkPaymentLogic() {
       const sheetSource = String(r["Sheet Source"] || "").toLowerCase();
       const tttt = String(r["Tình trạng thanh toán"] || "").trim();
 
-      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1")) return;
+      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1") || sheetSource.includes("intern") || sheetSource.includes("report")) return;
       if (r._dimmed) return;
 
       const nvCode = String(r["Nghiệp vụ"] || "").trim().toUpperCase();
@@ -697,7 +697,7 @@ export function useBulkPaymentLogic() {
       if (command === "-") return;
 
       const sheetSource = String(r["Sheet Source"] || "").toLowerCase();
-      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1")) return;
+      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1") || sheetSource.includes("intern") || sheetSource.includes("report")) return;
       if (r._dimmed) return;
 
       const nghiepVu = String(r["Nghiệp vụ"] || "").toLowerCase();
@@ -762,7 +762,7 @@ export function useBulkPaymentLogic() {
       if (r._dimmed) return;
 
       const sheetSource = String(r["Sheet Source"] || "").toLowerCase();
-      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1")) return;
+      if (sheetSource.includes("sheet 1 ae") || sheetSource.includes("sheet 1") || sheetSource.includes("intern") || sheetSource.includes("report")) return;
 
       const nghiepVu = String(r["Nghiệp vụ"] || "").toLowerCase();
       const trangThai = String(r["Tháng phát sinh"] || r["Trạng thái"] || "").toLowerCase();
@@ -1074,7 +1074,7 @@ export function useBulkPaymentLogic() {
         if (command === "-") return;
 
         const sheetSource = String(r["Sheet Source"] || "").toUpperCase();
-        if (sheetSource.includes("SHEET 1 AE") || sheetSource.includes("SHEET 1")) return;
+        if (sheetSource.includes("SHEET 1 AE") || sheetSource.includes("SHEET 1") || sheetSource.includes("INTERN") || sheetSource.includes("REPORT")) return;
         if (r._dimmed) return;
 
         let amount = parseMoneyToNumber(r["TOTAL PAYMENT"] || r["Payment Amount"] || r["Grand Total"] || r["GRAND TOTAL"] || r["Total Payment"] || 0);
