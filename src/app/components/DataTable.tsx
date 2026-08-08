@@ -149,6 +149,40 @@ const isNoCol = (k: string): boolean => {
   );
 };
 
+const isProtectedNumericColumn = (key: string): boolean => {
+  if (isIdColumnKey(key) || isNoCol(key)) return true;
+  const upper = String(key || "").trim().toUpperCase();
+  return (
+    upper.includes("ACCOUNT") ||
+    upper.includes("STK") ||
+    upper.includes("TAX") ||
+    upper.includes("PHONE") ||
+    upper.includes("MOBILE") ||
+    upper.includes("CODE") ||
+    upper.includes("MÃ ") ||
+    upper.startsWith("MÃ")
+  );
+};
+
+const roundToTwoDecimals = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return Object.is(rounded, -0) ? 0 : rounded;
+};
+
+const formatClipboardNumber = (value: number): string =>
+  String(roundToTwoDecimals(value));
+
+const looksLikeNumericValue = (value: unknown): boolean => {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "bigint") return true;
+  const text = String(value ?? "").trim();
+  if (!text || !/\d/.test(text)) return false;
+  return /^\(?[+\-]?\s*(?:(?:VND|VNĐ|Đ|DONG|₫)\s*)?\d[\d\s.,]*(?:\s*(?:VND|VNĐ|Đ|DONG|₫))?\)?$/i.test(
+    text,
+  );
+};
+
 const GITHUB_LABELS: Record<string, { color: string; textColor: string }> = {
   bug: { color: "#d73a4a", textColor: "#ffffff" },
   documentation: { color: "#0075ca", textColor: "#ffffff" },
@@ -2043,17 +2077,75 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
       }
     };
 
+    const isNumericColumnForClipboard = (col: Column): boolean => {
+      if (isProtectedNumericColumn(col.key)) return false;
+      const effectiveType = columnTypes[col.key] || col.type;
+      return (
+        effectiveType === "number" ||
+        effectiveType === "currency" ||
+        effectiveType === "money" ||
+        col.showGrandTotal === true
+      );
+    };
+
+    const getClipboardCellValue = (row: any, col: Column): string => {
+      if (!row || !col) return "";
+      const value = row[col.key];
+      if (value === null || value === undefined || value === "") return "";
+      if (value instanceof Date) {
+        return isNaN(value.getTime())
+          ? ""
+          : value.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            });
+      }
+
+      const effectiveType = columnTypes[col.key] || col.type;
+      const canInferNumericValue =
+        !isProtectedNumericColumn(col.key) &&
+        effectiveType !== "date" &&
+        effectiveType !== "label" &&
+        looksLikeNumericValue(value);
+
+      if (
+        isNumericColumnForClipboard(col) ||
+        canInferNumericValue
+      ) {
+        if (!looksLikeNumericValue(value)) return "";
+        return formatClipboardNumber(parseMoneyToNumber(value));
+      }
+
+      return String(value);
+    };
+
+    const normalizePastedCellValue = (
+      clipboardValue: string,
+      col: Column,
+    ): string | number => {
+      const trimmedValue = clipboardValue.trim();
+      if (!trimmedValue) return trimmedValue;
+
+      const effectiveType = columnTypes[col.key] || col.type;
+      const canInferNumericValue =
+        !isProtectedNumericColumn(col.key) &&
+        effectiveType !== "date" &&
+        effectiveType !== "label" &&
+        looksLikeNumericValue(trimmedValue);
+
+      if (!isNumericColumnForClipboard(col) && !canInferNumericValue) {
+        return trimmedValue;
+      }
+      if (!looksLikeNumericValue(trimmedValue)) return trimmedValue;
+      return roundToTwoDecimals(parseMoneyToNumber(trimmedValue));
+    };
+
     const copyColumn = (cIdx: number) => {
       const col = visibleColumns[cIdx];
-      const values = filteredAndSortedData.map((row) => {
-        const val = row[col.key];
-        if (val === null || val === undefined) return "";
-        if (col.type === "currency" || col.type === "money" || col.type === "number") {
-          const num = parseMoneyToNumber(val);
-          return isNaN(num) ? "" : String(num);
-        }
-        return formatValue(val, col.type);
-      });
+      const values = filteredAndSortedData.map((row) =>
+        getClipboardCellValue(row, col),
+      );
       try {
         navigator.clipboard.writeText(values.join("\n"));
       } catch (err) {
@@ -2065,27 +2157,6 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     };
 
     const copySelection = () => {
-      const getCellValueAsString = (row: any, col: any) => {
-        if (!row || !col) return "";
-        const val = row[col.key];
-        if (val === null || val === undefined) return "";
-        if (val instanceof Date) {
-          return isNaN(val.getTime()) ? "" : val.toLocaleDateString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          });
-        }
-        if (col.type === "label") {
-          return String(val);
-        }
-        if (col.type === "currency" || col.type === "money" || col.type === "number") {
-          const num = parseMoneyToNumber(val);
-          return isNaN(num) ? "" : String(num);
-        }
-        return String(val);
-      };
-
       if (selectionRange) {
         const { startR, endR, startC, endC } = selectionRange;
         const minR = Math.min(startR, endR);
@@ -2097,7 +2168,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
           if (minR === maxR && minC === maxC) {
             const row = filteredAndSortedData[minR];
             const col = visibleColumns[minC];
-            const valStr = getCellValueAsString(row, col);
+            const valStr = getClipboardCellValue(row, col);
             navigator.clipboard.writeText(valStr);
           } else {
             const rows = [];
@@ -2105,7 +2176,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
               const rowVals = [];
               for (let j = minC; j <= maxC; j++) {
                 const col = visibleColumns[j];
-                rowVals.push(getCellValueAsString(filteredAndSortedData[i], col));
+                rowVals.push(getClipboardCellValue(filteredAndSortedData[i], col));
               }
               rows.push(rowVals.join("\t"));
             }
@@ -2121,7 +2192,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
         try {
           const row = filteredAndSortedData[activeCell.r];
           const col = visibleColumns[activeCell.c];
-          const valStr = getCellValueAsString(row, col);
+          const valStr = getClipboardCellValue(row, col);
           navigator.clipboard.writeText(valStr);
         } catch (err) {
           console.error("Failed to copy!", err);
@@ -2469,14 +2540,22 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
               const rIdxInClip = (i - minR) % clipRows;
               for (let j = minC; j <= maxC; j++) {
                 const cIdxInClip = (j - minC) % clipCols;
-                const cellVal =
+                const clipboardCellValue =
                   parsedGrid[rIdxInClip] &&
                   parsedGrid[rIdxInClip][cIdxInClip] !== undefined
                     ? parsedGrid[rIdxInClip][cIdxInClip].trim()
                     : "";
                 const targetRow = filteredAndSortedData[i];
                 if (targetRow && visibleColumns[j]) {
-                  onCellChange(targetRow, visibleColumns[j].key, cellVal);
+                  const targetColumn = visibleColumns[j];
+                  onCellChange(
+                    targetRow,
+                    targetColumn.key,
+                    normalizePastedCellValue(
+                      clipboardCellValue,
+                      targetColumn,
+                    ),
+                  );
                 }
               }
             }
@@ -2494,10 +2573,11 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
               targetC < visibleColumns.length
             ) {
               const targetRow = filteredAndSortedData[targetR];
+              const targetColumn = visibleColumns[targetC];
               onCellChange(
                 targetRow,
-                visibleColumns[targetC].key,
-                cellText.trim(),
+                targetColumn.key,
+                normalizePastedCellValue(cellText, targetColumn),
               );
             }
           });
@@ -3065,6 +3145,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                     {(() => {
                       const colIsNumericList = visibleColumns.map((col) => {
                         const effectiveType = columnTypes[col.key] || col.type;
+                        if (isProtectedNumericColumn(col.key)) return false;
                         let colIsNumeric =
                           effectiveType === "number" ||
                           effectiveType === "currency" ||
@@ -3072,7 +3153,6 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                         
                         if (
                           !colIsNumeric &&
-                          effectiveType !== "text" &&
                           effectiveType !== "label" &&
                           effectiveType !== "date" &&
                           filteredAndSortedData.length > 0 &&
@@ -3088,9 +3168,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                               const rawVal = r[col.key];
                               if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== "") {
                                 totalValCount++;
-                                const str = String(rawVal).trim();
-                                const parsed = parseMoneyToNumber(str);
-                                if (parsed !== 0 || str === "0") {
+                                if (looksLikeNumericValue(rawVal)) {
                                   numericCount++;
                                 }
                               }
@@ -3104,16 +3182,25 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                       });
 
                       return visibleColumns.map((col: any, cIdx: number) => {
-                        const colIsNumeric = colIsNumericList[cIdx] || (col as any).showGrandTotal;
+                        const colIsNumeric =
+                          !isProtectedNumericColumn(col.key) &&
+                          (colIsNumericList[cIdx] ||
+                            (col as any).showGrandTotal);
                         const grandTotal = colIsNumeric
                           ? filteredAndSortedData.reduce(
                               (sum, row) => {
+                                if (row?._isTotalRow) return sum;
                                 if (totalCalculationOverride) {
                                   const override = totalCalculationOverride(row, col.key);
-                                  if (override !== null) return sum + override;
+                                  if (
+                                    typeof override === "number" &&
+                                    Number.isFinite(override)
+                                  ) {
+                                    return sum + override;
+                                  }
                                 }
                                 const val = parseMoneyToNumber(row[col.key]);
-                                return sum + (val || 0);
+                                return Number.isFinite(val) ? sum + val : sum;
                               },
                               0,
                             )
@@ -3191,7 +3278,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
             }}
           >
             <div className="flex items-center gap-3 px-3" style={{ paddingLeft: "12px" }}>
-              <div className="flex items-center gap-1.5 hidden md:flex">
+              <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap ml-2">
                   Hiển thị:
                 </span>
@@ -3389,14 +3476,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                   onClick={() => {
                     const row = filteredAndSortedData[contextMenu.r];
                     const col = visibleColumns[contextMenu.c];
-                    const val = row[col.key];
-                    let valStr = "";
-                    if (col.type === "currency" || col.type === "money" || col.type === "number") {
-                      const num = parseMoneyToNumber(val);
-                      valStr = isNaN(num) ? "" : String(num);
-                    } else {
-                      valStr = String(formatValue(val, col.type));
-                    }
+                    const valStr = getClipboardCellValue(row, col);
                     navigator.clipboard.writeText(valStr);
                     closeContextMenu();
                   }}

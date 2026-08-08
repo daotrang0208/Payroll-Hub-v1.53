@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/purity, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import * as XLSX from "xlsx";
 import {
@@ -1386,30 +1386,27 @@ export function PivotSheet() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f8f6f0] text-slate-800 font-sans p-4 gap-3">
+    <div className="flex flex-col h-full w-full bg-[#f8f6f0] text-slate-800 font-sans p-0 gap-0">
       {/* HEADER SECTION */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-[#e7dbdc] shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 border-b border-[#e7dbdc] shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-amber-50 border border-amber-200/80 rounded-lg text-amber-700">
+          <div className="p-2.5 bg-amber-50 border border-amber-200/80 rounded-[28px] text-amber-700">
             <FileSpreadsheet className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-slate-900 tracking-tight">Báo Cáo Pivot Lương (Master)</h1>
+              <h1 className="text-base font-bold text-slate-900 tracking-tight">Bảng Pivot Master</h1>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                 {totalCenters} Trung tâm
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Tổng hợp chi phí lương phân bổ theo Business, Center/L07 và các loại chi phí
-            </p>
           </div>
         </div>
 
         {/* CONTROLS */}
         <div className="flex items-center flex-wrap gap-2">
           {/* Month Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 h-[26px]">
             <span className="text-xs font-semibold text-slate-600">Tháng:</span>
             <Select value={selectedMonthFilter} onValueChange={(val) => {
               setSelectedMonthFilter(val);
@@ -1419,7 +1416,7 @@ export function PivotSheet() {
                 // ignore
               }
             }}>
-              <SelectTrigger className="h-7 border-none bg-transparent text-xs font-bold text-amber-900 p-0 shadow-none focus:ring-0 w-[100px]">
+              <SelectTrigger className="h-[21px] border-none bg-transparent text-[9px] leading-[9px] font-bold text-amber-900 p-0 shadow-none focus:ring-0 w-[86px]">
                 <SelectValue placeholder="Chọn tháng" />
               </SelectTrigger>
               <SelectContent>
@@ -1431,77 +1428,95 @@ export function PivotSheet() {
             </Select>
           </div>
 
-          <button
-            onClick={() => loadMasterData(true)}
-            disabled={isProcessing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
-            title="Tải lại dữ liệu từ bảng Cài đặt"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? "animate-spin text-amber-600" : ""}`} />
-            <span>{isProcessing ? "Đang xử lý..." : "Đồng bộ"}</span>
-          </button>
-
-          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-2xs cursor-pointer transition-all">
-            <Upload className="w-3.5 h-3.5 text-blue-600" />
-            <span>Tải file</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
-
-          <button
-            onClick={handleAddRow}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Thêm dòng</span>
-          </button>
-
-          <button
-            onClick={handleAddColumn}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Thêm cột</span>
-          </button>
-
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Xuất Excel</span>
-          </button>
-
           {/* SETTINGS MENU DROPDOWN */}
           <div className="relative" ref={settingsMenuRef}>
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer transition-all"
-              title="Tùy chỉnh hiển thị"
+              className="h-[25px] px-[6px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs font-medium"
+              title="Cài đặt & Thao tác"
             >
-              <SlidersHorizontal className="w-4 h-4" />
+              <SlidersHorizontal className="w-4 h-4 text-slate-600" />
             </button>
 
             {isSettingsOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 flex flex-col gap-3">
+              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3.5 flex flex-col gap-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Settings className="w-3.5 h-3.5 text-slate-500" /> Tùy chọn hiển thị
+                    <Settings className="w-4 h-4 text-slate-600" /> Cài đặt & Thao tác
                   </span>
-                  <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600 p-0.5">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
+                {/* ACTION BUTTONS SECTION */}
                 <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Thao tác dữ liệu</span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        loadMasterData(true);
+                      }}
+                      disabled={isProcessing}
+                      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                      title="Tải lại dữ liệu từ bảng Cài đặt"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? "animate-spin text-amber-600" : ""}`} />
+                      <span>{isProcessing ? "Đang xử lý..." : "Đồng bộ"}</span>
+                    </button>
+
+                    <label className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg cursor-pointer transition-all">
+                      <Upload className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Tải file</span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept=".xlsx,.xls,.csv"
+                        onChange={(e) => {
+                          setIsSettingsOpen(false);
+                          handleFileUpload(e);
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <button
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        handleAddRow();
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm dòng</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        handleAddColumn();
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm cột</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full mt-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Xuất Excel</span>
+                  </button>
+                </div>
+
+                <div className="border-t border-slate-100 pt-2 flex flex-col gap-1.5">
                   <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Ẩn/Hiện cột</span>
-                  <div className="max-h-48 overflow-y-auto flex flex-col gap-1 pr-1">
+                  <div className="max-h-40 overflow-y-auto flex flex-col gap-1 pr-1">
                     <label className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
                       <input
                         type="checkbox"
@@ -1578,43 +1593,8 @@ export function PivotSheet() {
         </div>
       </div>
 
-      {/* METRIC / SUMMARY CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-white p-3 rounded-xl border border-[#e7dbdc] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Trung Tâm / L07</p>
-            <p className="text-xl font-bold text-slate-900 mt-0.5">{totalCenters}</p>
-          </div>
-          <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-            <Rows className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-3 rounded-xl border border-[#e7dbdc] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Số Loại Chi Phí (Loại)</p>
-            <p className="text-xl font-bold text-slate-900 mt-0.5">{safeTypeColumns.length}</p>
-          </div>
-          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-            <Columns className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-3 rounded-xl border border-[#e7dbdc] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Chi Phí Phân Bổ</p>
-            <p className="text-xl font-bold text-amber-700 mt-0.5 font-mono">
-              {totalSalarySum ? totalSalarySum.toLocaleString("en-US") + " đ" : "0 đ"}
-            </p>
-          </div>
-          <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-            <FileSpreadsheet className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
       {/* MAIN DATA TABLE */}
-      <div className="flex-1 min-h-0 bg-white rounded-xl border border-[#e7dbdc] shadow-sm flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 bg-white rounded-none border-0 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto relative">
           <table className="w-full border-collapse text-left text-xs select-none">
             <thead className="sticky top-0 z-20 bg-slate-100 text-slate-700 border-b border-[#e7dbdc] font-bold shadow-2xs">
@@ -1756,17 +1736,17 @@ export function PivotSheet() {
           <div className="flex items-center gap-2">
             <span>Hiển thị</span>
             <Select value={String(rowsPerPage)} onValueChange={(val) => setRowsPerPage(Number(val))}>
-              <SelectTrigger className="h-7 w-16 text-xs bg-white border border-slate-200 shadow-2xs">
+              <SelectTrigger className="min-h-[10px] h-[10px] w-[85px] text-[10px] px-1.5 py-0 leading-none bg-white border border-slate-200 shadow-2xs">                
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-                <SelectItem value="250">250</SelectItem>
+                <SelectItem value="25">25 dòng</SelectItem>
+                <SelectItem value="50">50 dòng</SelectItem>
+                <SelectItem value="999999">Tất cả</SelectItem>
               </SelectContent>
             </Select>
-            <span>dòng/trang (Tổng {totalRowsCount} dòng)</span>
+            <span className="text-slate-300">|</span>
+            <span>Tổng: <strong className="font-semibold text-slate-800">{totalRowsCount}</strong> dòng</span>
           </div>
 
           <div className="flex items-center gap-1.5">

@@ -1017,7 +1017,7 @@ export function MasterAE() {
                             storageKey={`master-ae-${activeTab}`}
                             ignoreSavedHiddenColumns={true}
                             selectable={false}
-                            defaultItemsPerPage={Infinity}
+                            defaultItemsPerPage={50}
                             ignoreSavedPagination={true}
                             ref={tableRef}
                             columns={columns}
