@@ -34,8 +34,17 @@ export function parseTimeStrToHours(timeStr: string): number {
   const [h, m] = String(timeStr).split(':').map(Number);
   return (h || 0) + (m || 0) / 60;
 }
-export async function getExcelFileBuffer(file: File): Promise<ArrayBuffer> {
-  return await file.arrayBuffer();
+export async function getExcelFileBuffer(
+  file: File,
+): Promise<{ buffer: ArrayBuffer; name: string }> {
+  if (!file) {
+    throw new Error("Không tìm thấy thông tin file để đọc.");
+  }
+
+  return {
+    buffer: await file.arrayBuffer(),
+    name: file.name,
+  };
 }
 export function formatTime12Hour(timeStr: string): string {
   return String(timeStr);

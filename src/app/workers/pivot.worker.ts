@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as XLSX from "xlsx";
+import {
+  isSheetOneMasterSheetName,
+  normalizeMasterSheetName,
+} from "../lib/utils/master-sheet-utils";
 
 function extractBankName(filename: string, fallbackBank?: string): string {
   const upper = filename.toUpperCase();
@@ -163,9 +167,20 @@ function processExcelData(fileList: { name: string; bank?: string; buffer: Array
           continue;
         }
       } else {
-        targetSheetName = workbook.SheetNames.find(n => 
-          n.toUpperCase() === 'SHEET 1' || n.toUpperCase() === 'SHEET1' || n.toUpperCase() === 'INTERN' || n.toUpperCase() === 'REPORT'
-        ) || workbook.SheetNames.find(n => n.toUpperCase().includes('DATA') || n.toUpperCase().includes('DỮ LIỆU')) || workbook.SheetNames[0];
+        targetSheetName = workbook.SheetNames.find((name) => {
+          const normalizedName = normalizeMasterSheetName(name);
+          return (
+            isSheetOneMasterSheetName(name) ||
+            normalizedName === "INTERN" ||
+            normalizedName === "REPORT"
+          );
+        }) || workbook.SheetNames.find((name) => {
+          const normalizedName = normalizeMasterSheetName(name);
+          return (
+            normalizedName.includes("DATA") ||
+            normalizedName.includes("DU LIEU")
+          );
+        }) || workbook.SheetNames[0];
       }
 
       if (!targetSheetName) continue;

@@ -5,6 +5,7 @@ import {
   getExcelFileBuffer,
   scoreMatch,
 } from "../lib/utils/data-utils";
+import { isRelevantMasterSheetName } from "../lib/utils/master-sheet-utils";
 
 export interface MasterSheetPayload {
   sheetName: string;
@@ -23,30 +24,6 @@ interface ParseRequest {
   file: File;
   isMktFile: boolean;
   targetFields: string[];
-}
-
-function isRelevantSheet(sheetName: string, isMktFile: boolean) {
-  const name = sheetName.toUpperCase().trim();
-  if (isMktFile) {
-    return (
-      name === "ROSTER" ||
-      name === "Q_ROSTER" ||
-      name.includes("ROSTER") ||
-      name.includes("Q_ROSTER")
-    );
-  }
-
-  return (
-    name.includes("BANK") ||
-    name.includes("NGÂN HÀNG") ||
-    name.includes("SHEET 1") ||
-    name.includes("SHEET1") ||
-    name.includes("HOLD") ||
-    name.includes("ADD") ||
-    name.includes("SUMMER") ||
-    name.includes("BONUS") ||
-    name.includes("SO SÁNH AE")
-  );
 }
 
 function buildMapping(
@@ -114,7 +91,7 @@ export async function parseMasterWorkbook(
       });
 
   const sheets = workbook.SheetNames.filter((sheetName) =>
-    isRelevantSheet(sheetName, isMktFile),
+    isRelevantMasterSheetName(sheetName, isMktFile),
   ).map((sheetName) => ({
     sheetName,
     rows: XLSX.utils.sheet_to_json<any[]>(workbook.Sheets[sheetName], {

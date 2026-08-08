@@ -32,6 +32,13 @@ import {
   removeVietnameseTones,
   formatIdNumber,
 } from "../../lib/utils/data-utils";
+import {
+  isBankMasterSheetName,
+  isHoldMasterSheetName,
+  isRosterMasterSheetName,
+  isSheetOneMasterSheetName,
+  normalizeMasterSheetName,
+} from "../../lib/utils/master-sheet-utils";
 import MasterImportWorker from "../../workers/masterImport.worker?worker";
 import type { MasterWorkbookPayload } from "../../workers/masterImport.worker";
 
@@ -924,10 +931,13 @@ export function AEDataConfig({
             try {
               if (rows.length <= 1) continue;
 
-              const nameUpper = sheetName.toUpperCase();
+              const normalizedSheetName = normalizeMasterSheetName(sheetName);
               let sheetProcessed = false;
 
-              const isRosterSheet = nameUpper.includes("ROSTER") || nameUpper.includes("Q_ROSTER");
+              const isRosterSheet = isRosterMasterSheetName(sheetName);
+              const isBankSheet = isBankMasterSheetName(sheetName);
+              const isHoldSheet = isHoldMasterSheetName(sheetName);
+              const isSheetOneSheet = isSheetOneMasterSheetName(sheetName);
 
               if (isRosterSheet) {
                 let headerRowIndex = -1;
@@ -1027,10 +1037,9 @@ export function AEDataConfig({
               } else if (
                 !isMktFile &&
                 !isRosterSheet &&
-                (nameUpper.includes("BANK") ||
-                  nameUpper.includes("NGÂN HÀNG") ||
-                  nameUpper.includes("MKT") ||
-                  nameUpper.includes("MARKETING"))
+                (isBankSheet ||
+                  normalizedSheetName.includes("MKT") ||
+                  normalizedSheetName.includes("MARKETING"))
               ) {
                 let headerRowIndex = -1;
                 for (let r = 0; r < Math.min(30, rows.length); r++) {
@@ -1213,7 +1222,11 @@ export function AEDataConfig({
                 }
               }
 
-              if (!isMktFile && (nameUpper.includes("SUMMER") || nameUpper.includes("BONUS"))) {
+              if (
+                !isMktFile &&
+                (normalizedSheetName.includes("SUMMER") ||
+                  normalizedSheetName.includes("BONUS"))
+              ) {
                 let headerRowIndex = -1;
                 for (let r = 0; r < Math.min(50, rows.length); r++) {
                   const rowStr = rows[r].map(c => String(c || "").toUpperCase()).join(" ");
@@ -1290,7 +1303,10 @@ export function AEDataConfig({
                 }
               }
 
-              if (!isMktFile && (nameUpper.includes("HOLD") || nameUpper.includes("ADD"))) {
+              if (
+                !isMktFile &&
+                (isHoldSheet || normalizedSheetName.includes("ADD"))
+              ) {
                 let headerRowIndex = -1;
                 for (let r = 0; r < Math.min(30, rows.length); r++) {
                   const rowStr = rows[r]
@@ -1350,13 +1366,14 @@ export function AEDataConfig({
                   
                   // Determine negation ONLY from the sheetName itself, never from the adjacent Note column.
                   // The Note column has absolutely zero impact on the Sheet Source or whether the Total Payment is negated.
-                  const sheetNameUpper = sheetName.toUpperCase();
-                  if (sheetNameUpper.includes("HOLD") && fileMonthNum !== -1) {
-                    const ssMatch = sheetNameUpper.match(/(?:T|THÁNG|THANG|HOLD T|HOLD THÁNG|HOLD)\s*(\d{1,2})/);
+                  if (isHoldSheet && fileMonthNum !== -1) {
+                    const ssMatch = normalizedSheetName.match(
+                      /(?:T|THANG|HOLD T|HOLD THANG|HOLD)\s*(\d{1,2})/,
+                    );
                     if (ssMatch) {
                       if (parseInt(ssMatch[1], 10) === fileMonthNum) rowShouldNegate = true;
                     } else {
-                      const allNumbers = sheetNameUpper.match(/\d+/g);
+                      const allNumbers = normalizedSheetName.match(/\d+/g);
                       if (allNumbers) {
                         for (const m of allNumbers) {
                           if (parseInt(m, 10) === fileMonthNum) {
@@ -1622,11 +1639,7 @@ export function AEDataConfig({
                 }
               }
 
-              if (
-                !isMktFile &&
-                (nameUpper.includes("SHEET 1") ||
-                  nameUpper.includes("SHEET1"))
-              ) {
+              if (!isMktFile && isSheetOneSheet) {
                 let headerRowIndex = -1;
                 for (let r = 0; r < Math.min(30, rows.length); r++) {
                   const rowStr = rows[r]
@@ -1893,7 +1906,7 @@ export function AEDataConfig({
                 }
               }
 
-              if (!isMktFile && nameUpper.includes("SO SÁNH AE")) {
+              if (!isMktFile && normalizedSheetName.includes("SO SANH AE")) {
                 foundAnySheet = true;
                 sheetProcessed = true;
                 for (let r = 1; r < rows.length; r++) {

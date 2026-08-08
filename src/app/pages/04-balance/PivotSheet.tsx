@@ -1,7 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/purity */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { Download, RefreshCw, FileSpreadsheet, Eye, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Trash2, Columns, Rows } from "lucide-react";
+import {
+  Download,
+  RefreshCw,
+  FileSpreadsheet,
+  Eye,
+  Upload,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Trash2,
+  Columns,
+  Rows,
+  Plus,
+  X,
+  Settings
+} from "lucide-react";
 import { useAppData } from "../../lib/contexts/AppDataContext";
 import { buildPivotFromAppData } from "../../lib/utils/pivot-utils";
 import { toast } from "sonner";
@@ -14,7 +31,81 @@ import {
 } from "../../components/ui/select";
 
 // ==========================================
-// MAPPING DEFINITIONS & LOGIC FROM USER SPEC
+// HELPER UTILITIES EXPORTS FOR COMPATIBILITY
+// ==========================================
+
+export function parseMoneyToNumber(val: any): number {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  return Number(String(val).replace(/[^\d.-]/g, '')) || 0;
+}
+
+export function formatNumber(val: any): string {
+  const n = parseMoneyToNumber(val);
+  return n.toLocaleString('en-US');
+}
+
+export function formatMoneyVND(val: any): string {
+  const n = parseMoneyToNumber(val);
+  return n.toLocaleString('vi-VN') + ' VNĐ';
+}
+
+export function removeVietnameseTones(str: string): string {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+}
+
+export function formatIdNumber(id: any): string {
+  return String(id || '').trim();
+}
+
+export function prepareDataForExport(data: any[]): any[] {
+  return data;
+}
+
+export function parseAnyDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+export function getVal(row: any, key: string): any {
+  return row ? row[key] : null;
+}
+
+export function parseTimeStrToHours(timeStr: string): number {
+  if (!timeStr) return 0;
+  const [h, m] = String(timeStr).split(':').map(Number);
+  return (h || 0) + (m || 0) / 60;
+}
+
+export async function getExcelFileBuffer(
+  file: File,
+): Promise<{ buffer: ArrayBuffer; name: string }> {
+  if (!file) {
+    throw new Error("Không tìm thấy thông tin file để đọc.");
+  }
+  return {
+    buffer: await file.arrayBuffer(),
+    name: file.name,
+  };
+}
+
+export function formatTime12Hour(timeStr: string): string {
+  return String(timeStr);
+}
+
+export const COMMON_FIELD_ALIASES: Record<string, string[]> = {};
+export function scoreMatch(a: string, b: string): number { return a === b ? 1 : 0; }
+export function normalizeId(id: any): string { return String(id || ''); }
+export function toVietnamDateString(date: Date): string { return String(date); }
+export function generateUUID(): string { return Math.random().toString(36).substring(2, 9); }
+export async function fetchGoogleSheetAsFile(url: string, name: string): Promise<File> { return new File([], name); }
+export function isMoneyColumn(col: string): boolean { return Boolean(col && col.toLowerCase().includes('money')); }
+export async function fetchWithBackoff(fn: any): Promise<any> { return await fn(); }
+
+// ==========================================
+// MAPPING DEFINITIONS & LOGIC FROM SPEC
 // ==========================================
 
 const rawCenterToMktMap: Record<string, string> = {
@@ -191,20 +282,14 @@ function processTimesheetMktLogic(inputData: { chargetocenterCode: string }) {
   return { chargeToCenterMkt, l07, bu };
 }
 
-// ==========================================
-// PIVOT SHEET COMPONENT
-// ==========================================
-
 function parseMonthFromFileName(fileName: string, globalMonth?: string): string | null {
   if (!fileName) return null;
-  // Match patterns like 1.2026, 01.2026, 12.2026, or with dashes/slashes 01-2026
   const match = fileName.match(/\b(0?[1-9]|1[0-2])[./-](20\d{2})\b/);
   if (match) {
     const m = parseInt(match[1], 10);
     const y = parseInt(match[2], 10);
     return `${m < 10 ? "0" + m : m}.${y}`;
   }
-  // Try backup pattern: Month name or single digits like T1.2026 or Thang 1
   const tMatch = fileName.match(/(Th\w*|T|Month\s*)(0?[1-9]|1[0-2])\b/i);
   if (tMatch) {
     const m = parseInt(tMatch[2], 10);
@@ -222,6 +307,10 @@ function parseMonthFromFileName(fileName: string, globalMonth?: string): string 
   }
   return null;
 }
+
+// ==========================================
+// MAIN PIVOT SHEET REACT COMPONENT
+// ==========================================
 
 export function PivotSheet() {
   const { appData } = useAppData();
@@ -299,12 +388,14 @@ export function PivotSheet() {
     return "";
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isPivotSheetVisible, setIsPivotSheetVisible] = useState(true);
   const [rowsPerPage, setRowsPerPage] = useState<number>(50);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hiddenColumns, setHiddenColumns] = useState<Record<string, boolean>>({});
-  const [sortField] = useState<string | null>(null);
-  const [sortDirection] = useState<"asc" | "desc">("asc");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const safeTypeColumns = useMemo(() => (Array.isArray(typeColumns) ? typeColumns : []), [typeColumns]);
+  const safeGroupedData = useMemo(() => (groupedData && typeof groupedData === "object" ? groupedData : {}), [groupedData]);
 
   const uniqueMonths = useMemo(() => {
     const set = new Set<string>();
@@ -327,31 +418,27 @@ export function PivotSheet() {
       return str;
     };
 
-    // 1. From Ae_Global_Inputs
     (appData.Ae_Global_Inputs || []).forEach((row) => {
       const m = row.month || parseMonthFromFileName(row.name || row.fileName || "", appData.globalMonth);
       const norm = normalizeStr(m);
       if (norm) set.add(norm);
     });
 
-    // 2. From parsed Sheet1_AE
     (appData.Sheet1_AE?.data || []).forEach((r: any) => {
       const m = r["Tháng báo cáo"] || r["_fileMonth"] || r["Tháng"];
       const norm = normalizeStr(m);
       if (norm) set.add(norm);
     });
 
-    // 3. From parsed Hold_AE
     (appData.Hold_AE?.data || []).forEach((r: any) => {
       const m = r["Tháng báo cáo"] || r["_fileMonth"] || r["Tháng phát sinh"];
       const norm = normalizeStr(m);
       if (norm) set.add(norm);
     });
 
-    // 4. From current groupedData
-    for (const bu in groupedData) {
-      for (const l07 in groupedData[bu]) {
-        for (const month in groupedData[bu][l07]) {
+    for (const bu in safeGroupedData) {
+      for (const l07 in safeGroupedData[bu]) {
+        for (const month in safeGroupedData[bu][l07]) {
           const norm = normalizeStr(month);
           if (norm) set.add(norm);
         }
@@ -369,9 +456,8 @@ export function PivotSheet() {
       if ((ya || 0) !== (yb || 0)) return (ya || 0) - (yb || 0);
       return (ma || 0) - (mb || 0);
     });
-  }, [appData.Ae_Global_Inputs, appData.Sheet1_AE?.data, appData.Hold_AE?.data, appData.globalMonth, groupedData]);
+  }, [appData.Ae_Global_Inputs, appData.Sheet1_AE?.data, appData.Hold_AE?.data, appData.globalMonth, safeGroupedData]);
 
-  // Default value: Automatically set selectedMonthFilter to the month of the first file (or nearest month)
   useEffect(() => {
     if (uniqueMonths.length > 0) {
       if (!selectedMonthFilter || (selectedMonthFilter !== "ALL" && !uniqueMonths.includes(selectedMonthFilter))) {
@@ -386,7 +472,6 @@ export function PivotSheet() {
     }
   }, [uniqueMonths, selectedMonthFilter]);
 
-  // Column Widths state & resize logic
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
     try {
       const cached = localStorage.getItem("pivot_master_column_widths");
@@ -437,7 +522,6 @@ export function PivotSheet() {
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  // Cell editing state
   const [editingCell, setEditingCell] = useState<{
     bu: string;
     l07: string;
@@ -452,7 +536,7 @@ export function PivotSheet() {
     setEditValue(currentValue === undefined || currentValue === null ? "" : String(currentValue));
   };
 
-  const saveToCache = (newGroupedData: any, newTypeColumns = typeColumns) => {
+  const saveToCache = (newGroupedData: any, newTypeColumns = safeTypeColumns) => {
     try {
       localStorage.setItem("pivot_master_processed_data", JSON.stringify({
         groupedData: newGroupedData,
@@ -529,7 +613,7 @@ export function PivotSheet() {
       if (!nextData[defaultBU]) nextData[defaultBU] = {};
       if (!nextData[defaultBU][defaultL07]) nextData[defaultBU][defaultL07] = {};
       nextData[defaultBU][defaultL07][defaultMonth] = {};
-      typeColumns.forEach(t => {
+      safeTypeColumns.forEach(t => {
         nextData[defaultBU][defaultL07][defaultMonth][t] = 0;
       });
       saveToCache(nextData);
@@ -544,7 +628,7 @@ export function PivotSheet() {
     const trimmed = colName.trim();
     if (!trimmed) return;
     
-    if (typeColumns.includes(trimmed)) {
+    if (safeTypeColumns.includes(trimmed)) {
       toast.error(`Cột "${trimmed}" đã tồn tại!`);
       return;
     }
@@ -586,7 +670,6 @@ export function PivotSheet() {
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Close dropdowns on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
@@ -597,7 +680,6 @@ export function PivotSheet() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Reset to page 1 when rowsPerPage or groupedData changes
   useEffect(() => {
     setCurrentPage(1);
   }, [rowsPerPage, groupedData, typeColumns]);
@@ -624,13 +706,16 @@ export function PivotSheet() {
           if (rosterSheet) {
             targetSheetName = rosterSheet;
           } else {
-            // "KHÔNG MẶC ĐỊNH SHEET Ở VỊ TRÍ ĐẦU TIÊN CỦA FILE"
             continue;
           }
         } else {
-          targetSheetName = workbook.SheetNames.find(n => 
-            n.toUpperCase() === 'SHEET 1' || n.toUpperCase() === 'SHEET1' || n.toUpperCase() === 'INTERN' || n.toUpperCase() === 'REPORT'
-          ) || workbook.SheetNames.find(n => n.toUpperCase().includes('DATA') || n.toUpperCase().includes('DỮ LIỆU')) || workbook.SheetNames[0];
+          targetSheetName = workbook.SheetNames.find(n => {
+            const normName = (n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toUpperCase().trim().replace(/\s+/g, " ");
+            return normName === 'SHEET 1' || normName.includes('SHEET 1') || normName.includes('INTERN') || normName.includes('REPORT');
+          }) || workbook.SheetNames.find(n => {
+            const normName = (n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toUpperCase().trim().replace(/\s+/g, " ");
+            return normName.includes('DATA') || normName.includes('DU LIEU') || n.toUpperCase().includes('DỮ LIỆU');
+          }) || workbook.SheetNames[0];
         }
 
         const worksheet = workbook.Sheets[targetSheetName];
@@ -760,7 +845,6 @@ export function PivotSheet() {
       }
     }
 
-    // Cleanup UNSPECIFIED if 0
     let unspecifiedTotal = 0;
     for (const bu in newGroupedData) {
       for (const l07 in newGroupedData[bu]) {
@@ -806,7 +890,7 @@ export function PivotSheet() {
 
     try {
       const masterRows = appData.Ae_Global_Inputs || [];
-      const fileBuffers: { name: string; bank?: string; buffer: ArrayBuffer }[] = [];
+      const fileBuffers: { name: string; bank?: string; buffer: ArrayBuffer; month: string }[] = [];
 
       for (const row of masterRows) {
         const rowMonth = row.month || parseMonthFromFileName(row.name || "", appData.globalMonth) || appData.globalMonth || "03.2026";
@@ -825,17 +909,17 @@ export function PivotSheet() {
 
       if (fileBuffers.length > 0) {
         const res = await processFileBuffers(fileBuffers);
-        setGroupedData(res.groupedData);
-        setTypeColumns(res.typeColumns);
-        setDiagnosticLogs(res.logs);
+        setGroupedData(res?.groupedData || {});
+        setTypeColumns(res?.typeColumns || []);
+        setDiagnosticLogs(res?.logs || []);
         const infoStr = `Đồng bộ từ ${fileBuffers.length} file Master`;
         _setSourceInfo(infoStr);
 
         try {
           localStorage.setItem("pivot_master_processed_data", JSON.stringify({
-            groupedData: res.groupedData,
-            typeColumns: res.typeColumns,
-            diagnosticLogs: res.logs,
+            groupedData: res?.groupedData || {},
+            typeColumns: res?.typeColumns || [],
+            diagnosticLogs: res?.logs || [],
             sourceInfo: infoStr,
             filter: selectedMonthFilter,
             updatedAt: Date.now()
@@ -848,7 +932,6 @@ export function PivotSheet() {
           toast.success(`Đã đồng bộ ${fileBuffers.length} file từ bảng Cài đặt & tải file (Master)`);
         }
       } else if (appData.Sheet1_AE?.data && appData.Sheet1_AE.data.length > 0) {
-        // Fallback: build Pivot directly from verified Sheet1_AE / Hold_AE / Q_Roster in appData
         const filteredSheet1 = appData.Sheet1_AE.data || [];
         const filteredRoster = appData.Q_Roster || [];
 
@@ -857,8 +940,8 @@ export function PivotSheet() {
           [],
           filteredRoster
         );
-        setGroupedData(res.groupedData);
-        setTypeColumns(res.typeColumns);
+        setGroupedData(res?.groupedData || {});
+        setTypeColumns(res?.typeColumns || []);
         setDiagnosticLogs([]);
         const infoStr = `Đồng bộ từ dữ liệu Sheet1 AE (${filteredSheet1.length} dòng)`;
         _setSourceInfo(infoStr);
@@ -923,16 +1006,16 @@ export function PivotSheet() {
       }
 
       const res = await processFileBuffers(fileBuffers);
-      setGroupedData(res.groupedData);
-      setTypeColumns(res.typeColumns);
-      setDiagnosticLogs(res.logs);
+      setGroupedData(res?.groupedData || {});
+      setTypeColumns(res?.typeColumns || []);
+      setDiagnosticLogs(res?.logs || []);
       const infoStr = `Tải trực tiếp từ ${fileBuffers.length} file vừa chọn`;
       _setSourceInfo(infoStr);
       try {
         localStorage.setItem("pivot_master_processed_data", JSON.stringify({
-          groupedData: res.groupedData,
-          typeColumns: res.typeColumns,
-          diagnosticLogs: res.logs,
+          groupedData: res?.groupedData || {},
+          typeColumns: res?.typeColumns || [],
+          diagnosticLogs: res?.logs || [],
           sourceInfo: infoStr,
           updatedAt: Date.now()
         }));
@@ -984,27 +1067,27 @@ export function PivotSheet() {
 
   const handleExportExcel = () => {
     setIsSettingsOpen(false);
-    if (Object.keys(groupedData).length === 0) {
+    if (Object.keys(safeGroupedData).length === 0) {
       toast.error("Không có dữ liệu để xuất Excel!");
       return;
     }
 
     const wsData: any[][] = [];
-    const headers = ["No.", "Business", "L07", "Tháng", ...typeColumns, "TỔNG CỘNG"];
+    const headers = ["No.", "Business", "L07", "Tháng", ...safeTypeColumns, "TỔNG CỘNG"];
     wsData.push(headers);
 
     let rowId = 1;
-    const grandTotals = new Array(typeColumns.length).fill(0);
+    const grandTotals = new Array(safeTypeColumns.length).fill(0);
     let superGrandTotal = 0;
-    const sortedBUs = Object.keys(groupedData).sort();
+    const sortedBUs = Object.keys(safeGroupedData).sort();
 
     sortedBUs.forEach(bu => {
-      const buTotals = new Array(typeColumns.length).fill(0);
+      const buTotals = new Array(safeTypeColumns.length).fill(0);
       let buGrandTotal = 0;
-      const l07s = Object.keys(groupedData[bu]).sort();
+      const l07s = Object.keys(safeGroupedData[bu] || {}).sort();
 
       l07s.forEach(l07 => {
-        const months = Object.keys(groupedData[bu][l07]).sort();
+        const months = Object.keys(safeGroupedData[bu][l07] || {}).sort();
         months.forEach(month => {
           if (selectedMonthFilter !== "ALL") {
             const normM = month.match(/(?:THÁNG|THANG|T)?\s*(\d{1,2})[./\- ]\s*(\d{4})/i);
@@ -1013,8 +1096,8 @@ export function PivotSheet() {
           }
           
           let rowTotal = 0;
-          const rowVals = typeColumns.map((type, idx) => {
-            const val = groupedData[bu][l07][month][type] || 0;
+          const rowVals = safeTypeColumns.map((type, idx) => {
+            const val = safeGroupedData[bu][l07][month][type] || 0;
             buTotals[idx] += val;
             grandTotals[idx] += val;
             rowTotal += val;
@@ -1041,7 +1124,7 @@ export function PivotSheet() {
 
   let totalCenters = 0;
   let totalSalarySum = 0;
-  const grandTotals = new Array(typeColumns.length).fill(0);
+  const grandTotals = new Array(safeTypeColumns.length).fill(0);
   let superGrandTotal = 0;
 
   const allFlatRows: Array<{
@@ -1054,11 +1137,11 @@ export function PivotSheet() {
   }> = [];
 
   let rIdx = 1;
-  const currentSortedBUs = Object.keys(groupedData).sort();
+  const currentSortedBUs = Object.keys(safeGroupedData).sort();
   currentSortedBUs.forEach(bu => {
-    const l07s = Object.keys(groupedData[bu]).sort();
+    const l07s = Object.keys(safeGroupedData[bu] || {}).sort();
     l07s.forEach(l07 => {
-      const months = Object.keys(groupedData[bu][l07]).sort();
+      const months = Object.keys(safeGroupedData[bu][l07] || {}).sort();
       months.forEach(month => {
         if (selectedMonthFilter !== "ALL") {
           const normM = month.match(/(?:THÁNG|THANG|T)?\s*(\d{1,2})[./\- ]\s*(\d{4})/i);
@@ -1067,8 +1150,8 @@ export function PivotSheet() {
         }
         
         let rowTotal = 0;
-        const values = typeColumns.map((type, idx) => {
-          const val = groupedData[bu][l07][month][type] || 0;
+        const values = safeTypeColumns.map((type, idx) => {
+          const val = safeGroupedData[bu][l07][month][type] || 0;
           grandTotals[idx] += val;
           rowTotal += val;
           return val;
@@ -1094,7 +1177,6 @@ export function PivotSheet() {
     });
   });
 
-  // Sorting
   const sortedFlatRows = useMemo(() => {
     if (!sortField) return allFlatRows;
     return [...allFlatRows].sort((a, b) => {
@@ -1117,7 +1199,7 @@ export function PivotSheet() {
         valB = b.rowTotal;
       } else if (sortField.startsWith("type_")) {
         const typeName = sortField.replace("type_", "");
-        const typeIdx = typeColumns.indexOf(typeName);
+        const typeIdx = safeTypeColumns.indexOf(typeName);
         if (typeIdx !== -1) {
           valA = a.values[typeIdx] || 0;
           valB = b.values[typeIdx] || 0;
@@ -1129,8 +1211,7 @@ export function PivotSheet() {
       }
       return sortDirection === "asc" ? valA - valB : valB - valA;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupedData, typeColumns, sortField, sortDirection]);
+  }, [allFlatRows, safeTypeColumns, sortField, sortDirection]);
 
   const totalRowsCount = sortedFlatRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRowsCount / rowsPerPage));
@@ -1143,7 +1224,7 @@ export function PivotSheet() {
     if (paginatedRows.length === 0) {
       return (
         <tr>
-          <td colSpan={6 + typeColumns.length} className="py-12 text-center text-slate-400 text-sm bg-white">
+          <td colSpan={6 + safeTypeColumns.length} className="py-12 text-center text-slate-400 text-sm bg-white">
             <span>Chưa có dữ liệu. Vui lòng tải file ở bảng <span className="font-semibold text-slate-600">Cài đặt & Tải file (Master)</span> và nhấn <span className="font-semibold text-slate-600">Xử lý dữ liệu</span>.</span>
           </td>
         </tr>
@@ -1225,7 +1306,7 @@ export function PivotSheet() {
             <td 
               style={{ width: columnWidths["month"] || 90, minWidth: columnWidths["month"] || 90, maxWidth: columnWidths["month"] || 90 }}
               onDoubleClick={() => handleStartEdit(item.bu, item.l07, item.month, "month", item.month)}
-              className="py-2 px-2.5 text-center border-r border-b border-[#e7dbdc] font-bold text-slate-800 text-xs bg-slate-50/50 cursor-pointer hover:bg-amber-100/60 transition-colors"
+              className="py-2 px-2.5 text-center border-r border-b border-[#e7dbdc] text-slate-700 text-xs font-mono cursor-pointer hover:bg-amber-100/60 transition-colors"
               title="Nhấp đúp để sửa Tháng"
             >
               {isEditingThisRow && editingCell.field === "month" ? (
@@ -1238,29 +1319,28 @@ export function PivotSheet() {
                     if (e.key === "Escape") handleCancelEdit();
                   }}
                   onBlur={handleSaveEdit}
-                  className="w-full bg-amber-50 border border-amber-400 font-bold text-slate-900 text-xs px-1.5 py-0.5 rounded outline-none focus:ring-1 focus:ring-amber-500 text-center"
+                  className="w-full bg-amber-50 border border-amber-400 font-mono text-slate-900 text-xs px-1.5 py-0.5 rounded outline-none focus:ring-1 focus:ring-amber-500 text-center"
                 />
               ) : (
                 <span>{item.month}</span>
               )}
             </td>
           )}
-          {typeColumns.map((type, tIdx) => {
+          {safeTypeColumns.map((type, tIdx) => {
             if (hiddenColumns[`type_${type}`]) return null;
             const val = item.values[tIdx];
             const colKey = `type_${type}`;
             const w = columnWidths[colKey] || 120;
-            const isEditingCell = isEditingThisRow && editingCell.field === type;
 
             return (
               <td 
-                key={type} 
+                key={colKey}
                 style={{ width: w, minWidth: w, maxWidth: w }}
                 onDoubleClick={() => handleStartEdit(item.bu, item.l07, item.month, type, val)}
-                className="py-2 px-2.5 text-right border-r border-b border-[#e7dbdc] font-mono text-slate-700 text-xs cursor-pointer hover:bg-amber-100/60 transition-colors"
-                title={`Nhấp đúp để sửa số tiền (${type})`}
+                className={`py-2 px-2.5 text-right border-r border-b border-[#e7dbdc] font-mono text-xs cursor-pointer hover:bg-amber-100/60 transition-colors ${val > 0 ? "text-slate-900 font-semibold" : "text-slate-300"}`}
+                title={`Nhấp đúp để sửa ${type}`}
               >
-                {isEditingCell ? (
+                {isEditingThisRow && editingCell.field === type ? (
                   <input
                     autoFocus
                     value={editValue}
@@ -1270,10 +1350,10 @@ export function PivotSheet() {
                       if (e.key === "Escape") handleCancelEdit();
                     }}
                     onBlur={handleSaveEdit}
-                    className="w-full bg-amber-50 border border-amber-400 font-mono text-slate-900 text-xs text-right px-1.5 py-0.5 rounded outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-amber-50 border border-amber-400 font-mono text-slate-900 text-xs px-1.5 py-0.5 rounded outline-none focus:ring-1 focus:ring-amber-500 text-right"
                   />
                 ) : (
-                  <span>{val === 0 ? <span className="text-slate-300">0</span> : val.toLocaleString('vi-VN')}</span>
+                  <span>{val ? val.toLocaleString("en-US") : "-"}</span>
                 )}
               </td>
             );
@@ -1281,9 +1361,9 @@ export function PivotSheet() {
           {!hiddenColumns.grandTotal && (
             <td 
               style={{ width: columnWidths["grandTotal"] || 140, minWidth: columnWidths["grandTotal"] || 140, maxWidth: columnWidths["grandTotal"] || 140 }}
-              className="py-2 px-2.5 text-right border-r border-b border-[#e7dbdc] font-bold text-[#781D1D] bg-amber-50/40 font-mono text-xs"
+              className="py-2 px-3 text-right border-b border-[#e7dbdc] font-mono font-bold text-slate-900 text-xs bg-amber-50/30"
             >
-              {item.rowTotal === 0 ? <span className="text-slate-300">0</span> : Math.round(item.rowTotal).toLocaleString('vi-VN')}
+              {item.rowTotal ? item.rowTotal.toLocaleString("en-US") : "0"}
             </td>
           )}
         </tr>
@@ -1291,418 +1371,143 @@ export function PivotSheet() {
     });
   };
 
+  const toggleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortField(null);
+        setSortDirection("asc");
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 w-full overflow-hidden bg-white rounded-none border border-[#e7dbdc] shadow-2xs relative z-10">
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-        id="pivot-upload"
-        onChange={handleFileUpload}
-      />
-      {/* TOP HEADER TOOLBAR & STATS BADGES */}
-      <div 
-        className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-[#e7dbdc]"
-        style={{ backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-      >
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#781D1D] shrink-0 inline-block"></span>
-            <span className="text-[#781D1D] font-extrabold uppercase tracking-wider" style={{ fontSize: "13px" }}>
-              PIVOT MASTER
-            </span>
+    <div className="flex flex-col h-full w-full bg-[#f8f6f0] text-slate-800 font-sans p-4 gap-3">
+      {/* HEADER SECTION */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-[#e7dbdc] shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-amber-50 border border-amber-200/80 rounded-lg text-amber-700">
+            <FileSpreadsheet className="w-5 h-5" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold text-slate-900 tracking-tight">Báo Cáo Pivot Lương (Master)</h1>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                {totalCenters} Trung tâm
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Tổng hợp chi phí lương phân bổ theo Business, Center/L07 và các loại chi phí
+            </p>
+          </div>
+        </div>
 
-          <div className="h-4 w-px bg-slate-300 mx-1 hidden sm:block" />
-
-          {/* Month Filter Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
-              Tháng:
-            </span>
-            <Select
-              value={selectedMonthFilter}
-              onValueChange={(val) => {
-                setSelectedMonthFilter(val);
-                try {
-                  localStorage.setItem("pivot_master_selected_month_filter", val);
-                } catch {
-                  // ignore
-                }
-              }}
-            >
-              <SelectTrigger 
-                className="h-[28px] rounded-full px-3 text-[11px] font-bold text-slate-800 border-[#e7dbdc] bg-white hover:bg-slate-50 transition-colors shadow-2xs focus:ring-0 outline-none"
-                style={{ width: "130px", height: "28px" }}
-              >
-                <SelectValue placeholder="Tất cả tháng" />
+        {/* CONTROLS */}
+        <div className="flex items-center flex-wrap gap-2">
+          {/* Month Filter */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+            <span className="text-xs font-semibold text-slate-600">Tháng:</span>
+            <Select value={selectedMonthFilter} onValueChange={(val) => {
+              setSelectedMonthFilter(val);
+              try {
+                localStorage.setItem("pivot_master_selected_month_filter", val);
+              } catch {
+                // ignore
+              }
+            }}>
+              <SelectTrigger className="h-7 border-none bg-transparent text-xs font-bold text-amber-900 p-0 shadow-none focus:ring-0 w-[100px]">
+                <SelectValue placeholder="Chọn tháng" />
               </SelectTrigger>
-              <SelectContent className="bg-white border-[#e7dbdc] z-[99999] opacity-100 shadow-xl rounded-xl">
-                <SelectItem value="ALL" className="text-[12px] font-bold cursor-pointer">Tất cả tháng</SelectItem>
-                {uniqueMonths.map((m) => (
-                  <SelectItem key={m} value={m} className="text-[12px] font-bold cursor-pointer">
-                    {m}
-                  </SelectItem>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả tháng</SelectItem>
+                {uniqueMonths.map(m => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2 pt-2 pb-2">
-          <div className="text-right px-3 py-1 bg-white rounded border border-[#e7dbdc]/80 shadow-2xs">
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">CENTERS</p>
-            <p className="text-sm font-bold text-slate-800 font-mono leading-tight">{totalCenters}</p>
-          </div>
-          <div className="text-right px-3 py-1 bg-white rounded border border-[#e7dbdc]/80 shadow-2xs">
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">TOTAL</p>
-            <p className="text-sm font-bold text-[#781D1D] font-mono leading-tight">{Math.round(totalSalarySum).toLocaleString('vi-VN')}</p>
-          </div>
-        </div>
-      </div>
 
-      {/* PIVOT TABLE DISPLAY WITH HIGH-CONTRAST HEADERS & GRIDLINES */}
-      <div className="overflow-auto relative flex-1 custom-scrollbar bg-white pivot-table-container">
-        {isPivotSheetVisible && (
-          <table className="w-full text-right text-xs whitespace-nowrap border-separate border-spacing-0">
-            <thead 
-              className="text-[#781D1D] font-bold uppercase text-[11px] border-b border-[#e7dbdc] sticky top-0 z-30 shadow-2xs"
-              style={{ backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-            >
-              <tr>
-                {!hiddenColumns.no && (
-                  <th 
-                    style={{ width: columnWidths["no"] || 50, minWidth: columnWidths["no"] || 50, maxWidth: columnWidths["no"] || 50, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2 text-center border-r border-b border-[#e7dbdc] sticky top-0 transition-colors select-none text-[#781D1D] relative group"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>No.</span>
-                    </div>
-                    <div 
-                      onMouseDown={(e) => handleResizeStart(e, "no", 50)}
-                      className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-500/60 group-hover:bg-slate-300/60 z-20 select-none"
-                      title="Kéo cạnh phải để thay đổi độ rộng cột"
-                    />
-                  </th>
-                )}
-                {!hiddenColumns.business && (
-                  <th 
-                    style={{ width: columnWidths["business"] || 90, minWidth: columnWidths["business"] || 90, maxWidth: columnWidths["business"] || 90, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-center border-r border-b border-[#e7dbdc] sticky top-0 transition-colors select-none text-[#781D1D] relative group"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Business</span>
-                    </div>
-                    <div 
-                      onMouseDown={(e) => handleResizeStart(e, "business", 90)}
-                      className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-500/60 group-hover:bg-slate-300/60 z-20 select-none"
-                      title="Kéo cạnh phải để thay đổi độ rộng cột"
-                    />
-                  </th>
-                )}
-                {!hiddenColumns.charge && (
-                  <th 
-                    style={{ width: columnWidths["charge"] || 220, minWidth: columnWidths["charge"] || 220, maxWidth: columnWidths["charge"] || 220, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-center border-r border-b border-[#e7dbdc] sticky top-0 transition-colors select-none text-[#781D1D] relative group"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>L07</span>
-                    </div>
-                    <div 
-                      onMouseDown={(e) => handleResizeStart(e, "charge", 220)}
-                      className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-500/60 group-hover:bg-slate-300/60 z-20 select-none"
-                      title="Kéo cạnh phải để thay đổi độ rộng cột"
-                    />
-                  </th>
-                )}
-                {!hiddenColumns.month && (
-                  <th 
-                    style={{ width: columnWidths["month"] || 90, minWidth: columnWidths["month"] || 90, maxWidth: columnWidths["month"] || 90, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-center border-r border-b border-[#e7dbdc] sticky top-0 transition-colors select-none text-[#781D1D] relative group"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Tháng</span>
-                    </div>
-                    <div 
-                      onMouseDown={(e) => handleResizeStart(e, "month", 90)}
-                      className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-500/60 group-hover:bg-slate-300/60 z-20 select-none"
-                      title="Kéo cạnh phải để thay đổi độ rộng cột"
-                    />
-                  </th>
-                )}
-                {typeColumns.map(type => {
-                  if (hiddenColumns[`type_${type}`]) return null;
-                  const colKey = `type_${type}`;
-                  const w = columnWidths[colKey] || 120;
-                  return (
-                    <th 
-                      key={type} 
-                      style={{ width: w, minWidth: w, maxWidth: w, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                      className="py-2.5 px-2.5 text-center border-r border-b border-[#e7dbdc] sticky top-0 transition-colors select-none text-[#781D1D] relative group"
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="truncate">{type}</span>
-                      </div>
-                      <div 
-                        onMouseDown={(e) => handleResizeStart(e, colKey, 120)}
-                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-500/60 group-hover:bg-slate-300/60 z-20 select-none"
-                        title="Kéo cạnh phải để thay đổi độ rộng cột"
-                      />
-                    </th>
-                  );
-                })}
-                {!hiddenColumns.grandTotal && (
-                  <th 
-                    style={{ width: columnWidths["grandTotal"] || 140, minWidth: columnWidths["grandTotal"] || 140, maxWidth: columnWidths["grandTotal"] || 140 }}
-                    className="py-2.5 px-2.5 text-center border-r border-b border-[#e7dbdc] bg-amber-100/70 text-[#781D1D] font-bold sticky top-0 transition-colors select-none relative group"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>TỔNG CỘNG</span>
-                    </div>
-                    <div 
-                      onMouseDown={(e) => handleResizeStart(e, "grandTotal", 140)}
-                      className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-500/60 group-hover:bg-slate-300/60 z-20 select-none"
-                      title="Kéo cạnh phải để thay đổi độ rộng cột"
-                    />
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e7dbdc] border-b border-[#e7dbdc] text-slate-700 font-medium">
-              {renderRows()}
-            </tbody>
-            <tfoot 
-              className="font-bold text-[#781D1D] sticky bottom-[-1px] z-20 shadow-[0_-2px_6px_rgba(0,0,0,0.06)]"
-              style={{ backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-            >
-              <tr style={{ backgroundColor: "var(--table-header-bg, #FAF9F6)" }}>
-                {!hiddenColumns.no && (
-                  <td 
-                    style={{ width: columnWidths["no"] || 50, minWidth: columnWidths["no"] || 50, maxWidth: columnWidths["no"] || 50, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-center border-r border-t border-b border-[#e7dbdc]"
-                  ></td>
-                )}
-                {!hiddenColumns.business && (
-                  <td 
-                    style={{ width: columnWidths["business"] || 90, minWidth: columnWidths["business"] || 90, maxWidth: columnWidths["business"] || 90, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-center border-r border-t border-b border-[#e7dbdc]"
-                  ></td>
-                )}
-                {!hiddenColumns.charge && (
-                  <td 
-                    style={{ width: columnWidths["charge"] || 220, minWidth: columnWidths["charge"] || 220, maxWidth: columnWidths["charge"] || 220, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-left border-r border-t border-b border-[#e7dbdc] uppercase tracking-wide font-bold text-[#781D1D]"
-                  >TỔNG CỘNG ({totalRowsCount})</td>
-                )}
-                {!hiddenColumns.month && (
-                  <td 
-                    style={{ width: columnWidths["month"] || 90, minWidth: columnWidths["month"] || 90, maxWidth: columnWidths["month"] || 90, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                    className="py-2.5 px-2.5 text-center border-r border-t border-b border-[#e7dbdc]"
-                  ></td>
-                )}
-                {grandTotals.map((v, idx) => {
-                  const type = typeColumns[idx];
-                  if (hiddenColumns[`type_${type}`]) return null;
-                  const colKey = `type_${type}`;
-                  const w = columnWidths[colKey] || 120;
-                  return (
-                    <td 
-                      key={`grand-${idx}`} 
-                      style={{ width: w, minWidth: w, maxWidth: w, backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-                      className="py-2.5 px-2.5 text-right border-r border-t border-b border-[#e7dbdc] text-[#781D1D] font-mono font-bold"
-                    >
-                      {v === 0 ? "0" : Math.round(v).toLocaleString('vi-VN')}
-                    </td>
-                  );
-                })}
-                {!hiddenColumns.grandTotal && (
-                  <td 
-                    style={{ width: columnWidths["grandTotal"] || 140, minWidth: columnWidths["grandTotal"] || 140, maxWidth: columnWidths["grandTotal"] || 140 }}
-                    className="py-2.5 px-2.5 text-right border-r border-t border-b border-[#e7dbdc] text-[#781D1D] font-black bg-amber-100/90 font-mono"
-                  >
-                    {superGrandTotal === 0 ? "0" : Math.round(superGrandTotal).toLocaleString('vi-VN')}
-                  </td>
-                )}
-              </tr>
-            </tfoot>
-          </table>
-        )}
-      </div>
+          <button
+            onClick={() => loadMasterData(true)}
+            disabled={isProcessing}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+            title="Tải lại dữ liệu từ bảng Cài đặt"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? "animate-spin text-amber-600" : ""}`} />
+            <span>{isProcessing ? "Đang xử lý..." : "Đồng bộ"}</span>
+          </button>
 
-      {/* FOOTER BAR WITH PAGE SIZE MATCHING HOLD AE_MASTER, SETTINGS ICON MENU, AND PAGINATION */}
-      <div 
-        className="px-4 py-[10px] border-t border-[#e7dbdc] flex flex-wrap items-center justify-between gap-4 text-xs text-slate-700"
-        style={{ backgroundColor: "var(--table-header-bg, #FAF9F6)" }}
-      >
-        {/* LEFT SIDE: PAGE SIZE DROPDOWN MATCHING HOLD AE_MASTER & SETTINGS ICON BUTTON */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap">
-              Hiển thị:
-            </span>
-            <Select
-              value={rowsPerPage >= 99999 ? "all" : String(rowsPerPage)}
-              onValueChange={(val) => {
-                setRowsPerPage(val === "all" ? 999999 : Number(val));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger 
-                className="h-[28px] rounded-full px-3 text-[11px] font-bold text-slate-800 border-[#e7dbdc] bg-white hover:bg-slate-50 transition-colors shadow-2xs"
-                style={{ width: "110px", height: "28px" }}
-              >
-                <SelectValue placeholder="Chọn..." />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-[#e7dbdc] z-[99999] opacity-100 shadow-xl rounded-xl">
-                <SelectItem value="10" className="text-[12px] font-bold cursor-pointer">10 dòng</SelectItem>
-                <SelectItem value="20" className="text-[12px] font-bold cursor-pointer">20 dòng</SelectItem>
-                <SelectItem value="50" className="text-[12px] font-bold cursor-pointer">50 dòng</SelectItem>
-                <SelectItem value="100" className="text-[12px] font-bold cursor-pointer">100 dòng</SelectItem>
-                <SelectItem value="200" className="text-[12px] font-bold cursor-pointer">200 dòng</SelectItem>
-                <SelectItem value="500" className="text-[12px] font-bold cursor-pointer">500 dòng</SelectItem>
-                <SelectItem value="all" className="text-[12px] font-bold cursor-pointer">Tất cả</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-2xs cursor-pointer transition-all">
+            <Upload className="w-3.5 h-3.5 text-blue-600" />
+            <span>Tải file</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </label>
 
-          {/* SETTINGS / ACTION MENU BUTTON IN FOOTER */}
+          <button
+            onClick={handleAddRow}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm dòng</span>
+          </button>
+
+          <button
+            onClick={handleAddColumn}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm cột</span>
+          </button>
+
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-all cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Xuất Excel</span>
+          </button>
+
+          {/* SETTINGS MENU DROPDOWN */}
           <div className="relative" ref={settingsMenuRef}>
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="w-7 h-7 bg-white border border-[#e7dbdc] rounded-lg hover:bg-slate-100 transition-colors text-slate-700 shadow-2xs cursor-pointer flex items-center justify-center"
-              title="Cài đặt & Tác vụ Pivot"
+              className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer transition-all"
+              title="Tùy chỉnh hiển thị"
             >
-              <SlidersHorizontal className={`w-3.5 h-3.5 text-slate-700 ${isProcessing ? "animate-spin" : ""}`} />
+              <SlidersHorizontal className="w-4 h-4" />
             </button>
 
             {isSettingsOpen && (
-              <div className="absolute left-0 bottom-full mb-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 py-1 text-slate-700 text-xs font-medium divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-150">
-                {/* Section: Chỉnh sửa dữ liệu */}
-                <div className="py-1">
-                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chỉnh sửa Dữ liệu</div>
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      handleAddRow();
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <Rows className="w-4 h-4 text-indigo-600" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Thêm dòng mới</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Thêm một dòng dữ liệu trống</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      handleAddColumn();
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <Columns className="w-4 h-4 text-indigo-600" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Thêm cột mới</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Thêm một cột dữ liệu mới (ví dụ: PHỤ CẤP)</div>
-                    </div>
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Settings className="w-3.5 h-3.5 text-slate-500" /> Tùy chọn hiển thị
+                  </span>
+                  <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Section 1: Quick Actions */}
-                <div className="py-1">
-                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tác vụ Bảng</div>
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      loadMasterData(true);
-                    }}
-                    disabled={isProcessing}
-                    className="w-full text-left px-3 py-2 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 cursor-pointer disabled:opacity-50 transition-colors"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-emerald-600 ${isProcessing ? "animate-spin" : ""}`} />
-                    <div>
-                      <div className="font-semibold text-slate-800">Đồng bộ từ Cài đặt Master</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Cập nhật dữ liệu từ danh sách file Master đã tải</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <Upload className="w-4 h-4 text-blue-600" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Tải file Excel mới</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Tải trực tiếp file Excel dữ liệu Pivot</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      handleExportExcel();
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-teal-600" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Xuất Báo Cáo Excel</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Tải về file Excel Pivot hiện tại</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      handleDownloadDiagnosticCSV();
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-100 flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <Download className="w-4 h-4 text-slate-500" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Tải Logs CSV</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Xuất dữ liệu log kiểm tra các dòng lỗi</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsPivotSheetVisible(!isPivotSheetVisible);
-                      setIsSettingsOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-100 flex items-center gap-2.5 cursor-pointer transition-colors"
-                  >
-                    <Eye className="w-4 h-4 text-slate-600" />
-                    <div>
-                      <div className="font-semibold text-slate-800">{isPivotSheetVisible ? "Ẩn Bảng Pivot" : "Hiện Bảng Pivot"}</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Bật/tắt hiển thị dữ liệu bảng</div>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Section 2: Column Visibility */}
-                <div className="p-3 space-y-2">
-                  <div className="font-bold text-slate-800 pb-1 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500">Ẩn / Hiện Cột</span>
-                    <button
-                      onClick={() => setHiddenColumns({})}
-                      className="text-[10px] text-primary hover:underline font-normal cursor-pointer"
-                    >
-                      Hiện tất cả
-                    </button>
-                  </div>
-                  <div className="max-h-52 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Ẩn/Hiện cột</span>
+                  <div className="max-h-48 overflow-y-auto flex flex-col gap-1 pr-1">
                     <label className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
                       <input
                         type="checkbox"
                         checked={!hiddenColumns.no}
                         onChange={(e) => setHiddenColumns(prev => ({ ...prev, no: !e.target.checked }))}
-                        className="rounded border-[#e7dbdc] text-primary focus:ring-primary"
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                       />
                       <span className="text-xs font-medium text-slate-700">No.</span>
                     </label>
@@ -1711,37 +1516,37 @@ export function PivotSheet() {
                         type="checkbox"
                         checked={!hiddenColumns.business}
                         onChange={(e) => setHiddenColumns(prev => ({ ...prev, business: !e.target.checked }))}
-                        className="rounded border-[#e7dbdc] text-primary focus:ring-primary"
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                       />
-                      <span>Business</span>
+                      <span className="text-xs font-medium text-slate-700">Business</span>
                     </label>
                     <label className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
                       <input
                         type="checkbox"
                         checked={!hiddenColumns.charge}
                         onChange={(e) => setHiddenColumns(prev => ({ ...prev, charge: !e.target.checked }))}
-                        className="rounded border-[#e7dbdc] text-primary focus:ring-primary"
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                       />
-                      <span>CHARGE TO CENTER MKT / L07</span>
+                      <span className="text-xs font-medium text-slate-700">L07</span>
                     </label>
                     <label className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
                       <input
                         type="checkbox"
                         checked={!hiddenColumns.month}
                         onChange={(e) => setHiddenColumns(prev => ({ ...prev, month: !e.target.checked }))}
-                        className="rounded border-[#e7dbdc] text-primary focus:ring-primary"
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                       />
                       <span className="text-xs font-medium text-slate-700">Tháng</span>
                     </label>
-                    {typeColumns.map(type => (
+                    {safeTypeColumns.map(type => (
                       <label key={type} className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
                         <input
                           type="checkbox"
                           checked={!hiddenColumns[`type_${type}`]}
                           onChange={(e) => setHiddenColumns(prev => ({ ...prev, [`type_${type}`]: !e.target.checked }))}
-                          className="rounded border-[#e7dbdc] text-primary focus:ring-primary"
+                          className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                         />
-                        <span className="truncate" title={type}>{type}</span>
+                        <span className="text-xs font-medium text-slate-700">{type}</span>
                       </label>
                     ))}
                     <label className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
@@ -1749,60 +1554,260 @@ export function PivotSheet() {
                         type="checkbox"
                         checked={!hiddenColumns.grandTotal}
                         onChange={(e) => setHiddenColumns(prev => ({ ...prev, grandTotal: !e.target.checked }))}
-                        className="rounded border-[#e7dbdc] text-primary focus:ring-primary"
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                       />
-                      <span>TỔNG CỘNG</span>
+                      <span className="text-xs font-medium text-slate-700">TỔNG CỘNG</span>
                     </label>
                   </div>
                 </div>
+
+                {diagnosticLogs.length > 0 && (
+                  <div className="border-t border-slate-100 pt-2">
+                    <button
+                      onClick={handleDownloadDiagnosticCSV}
+                      className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-medium rounded-lg border border-rose-200 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Tải CSV Log lỗi ({diagnosticLogs.length})</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
+      </div>
 
-        {/* RIGHT SIDE: PAGINATION CONTROLS */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            disabled={validCurrentPage === 1}
-            onClick={() => setCurrentPage(1)}
-            className="w-7 h-7 flex items-center justify-center rounded border border-[#e7dbdc] bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs active:scale-95 cursor-pointer"
-            title="Trang đầu"
-          >
-            <ChevronsLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            disabled={validCurrentPage === 1}
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            className="w-7 h-7 flex items-center justify-center rounded border border-[#e7dbdc] bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs active:scale-95 cursor-pointer"
-            title="Trang trước"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          
-          <span className="px-3 text-[11px] leading-[14px] font-bold text-slate-800 uppercase tracking-wide">
-            TRANG {validCurrentPage} / {totalPages}
-          </span>
+      {/* METRIC / SUMMARY CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white p-3 rounded-xl border border-[#e7dbdc] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Trung Tâm / L07</p>
+            <p className="text-xl font-bold text-slate-900 mt-0.5">{totalCenters}</p>
+          </div>
+          <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <Rows className="w-5 h-5" />
+          </div>
+        </div>
 
-          <button
-            type="button"
-            disabled={validCurrentPage === totalPages || totalPages === 0}
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            className="w-7 h-7 flex items-center justify-center rounded border border-[#e7dbdc] bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs active:scale-95 cursor-pointer"
-            title="Trang sau"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            disabled={validCurrentPage === totalPages || totalPages === 0}
-            onClick={() => setCurrentPage(totalPages)}
-            className="w-7 h-7 flex items-center justify-center rounded border border-[#e7dbdc] bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs active:scale-95 cursor-pointer"
-            title="Trang cuối"
-          >
-            <ChevronsRight className="w-3.5 h-3.5" />
-          </button>
+        <div className="bg-white p-3 rounded-xl border border-[#e7dbdc] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Số Loại Chi Phí (Loại)</p>
+            <p className="text-xl font-bold text-slate-900 mt-0.5">{safeTypeColumns.length}</p>
+          </div>
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+            <Columns className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl border border-[#e7dbdc] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Chi Phí Phân Bổ</p>
+            <p className="text-xl font-bold text-amber-700 mt-0.5 font-mono">
+              {totalSalarySum ? totalSalarySum.toLocaleString("en-US") + " đ" : "0 đ"}
+            </p>
+          </div>
+          <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+            <FileSpreadsheet className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN DATA TABLE */}
+      <div className="flex-1 min-h-0 bg-white rounded-xl border border-[#e7dbdc] shadow-sm flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-auto relative">
+          <table className="w-full border-collapse text-left text-xs select-none">
+            <thead className="sticky top-0 z-20 bg-slate-100 text-slate-700 border-b border-[#e7dbdc] font-bold shadow-2xs">
+              <tr>
+                {!hiddenColumns.no && (
+                  <th 
+                    style={{ width: columnWidths["no"] || 50, minWidth: columnWidths["no"] || 50, maxWidth: columnWidths["no"] || 50 }}
+                    onClick={() => toggleSort("no")}
+                    className="py-2.5 px-2 text-center border-r border-[#e7dbdc] font-semibold text-slate-600 bg-slate-100/95 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-slate-200/80 transition-colors"
+                  >
+                    <span>No.</span>
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, "no", 50)}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"
+                    />
+                  </th>
+                )}
+
+                {!hiddenColumns.business && (
+                  <th 
+                    style={{ width: columnWidths["business"] || 90, minWidth: columnWidths["business"] || 90, maxWidth: columnWidths["business"] || 90 }}
+                    onClick={() => toggleSort("bu")}
+                    className="py-2.5 px-2.5 text-center border-r border-[#e7dbdc] font-bold text-slate-800 bg-slate-100/95 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-slate-200/80 transition-colors"
+                  >
+                    <span>Business</span>
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, "business", 90)}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"
+                    />
+                  </th>
+                )}
+
+                {!hiddenColumns.charge && (
+                  <th 
+                    style={{ width: columnWidths["charge"] || 220, minWidth: columnWidths["charge"] || 220, maxWidth: columnWidths["charge"] || 220 }}
+                    onClick={() => toggleSort("l07")}
+                    className="py-2.5 px-2.5 text-left border-r border-[#e7dbdc] font-bold text-slate-800 bg-slate-100/95 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-slate-200/80 transition-colors"
+                  >
+                    <span>L07</span>
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, "charge", 220)}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"
+                    />
+                  </th>
+                )}
+
+                {!hiddenColumns.month && (
+                  <th 
+                    style={{ width: columnWidths["month"] || 90, minWidth: columnWidths["month"] || 90, maxWidth: columnWidths["month"] || 90 }}
+                    onClick={() => toggleSort("month")}
+                    className="py-2.5 px-2.5 text-center border-r border-[#e7dbdc] font-bold text-slate-800 bg-slate-100/95 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-slate-200/80 transition-colors"
+                  >
+                    <span>Tháng</span>
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, "month", 90)}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"
+                    />
+                  </th>
+                )}
+
+                {safeTypeColumns.map(type => {
+                  if (hiddenColumns[`type_${type}`]) return null;
+                  const colKey = `type_${type}`;
+                  const w = columnWidths[colKey] || 120;
+                  return (
+                    <th 
+                      key={type}
+                      style={{ width: w, minWidth: w, maxWidth: w }}
+                      onClick={() => toggleSort(colKey)}
+                      className="py-2.5 px-2.5 text-right border-r border-[#e7dbdc] font-bold text-slate-800 bg-slate-100/95 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-slate-200/80 transition-colors"
+                    >
+                      <span className="truncate block" title={type}>{type}</span>
+                      <div
+                        onMouseDown={(e) => handleResizeStart(e, colKey, 120)}
+                        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"
+                      />
+                    </th>
+                  );
+                })}
+
+                {!hiddenColumns.grandTotal && (
+                  <th 
+                    style={{ width: columnWidths["grandTotal"] || 140, minWidth: columnWidths["grandTotal"] || 140, maxWidth: columnWidths["grandTotal"] || 140 }}
+                    onClick={() => toggleSort("rowTotal")}
+                    className="py-2.5 px-3 text-right font-extrabold text-amber-900 bg-amber-100/80 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-amber-200/80 transition-colors"
+                  >
+                    <span>TỔNG CỘNG</span>
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, "grandTotal", 140)}
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"
+                    />
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {renderRows()}
+            </tbody>
+
+            {/* GRAND TOTAL FOOTER ROW */}
+            {paginatedRows.length > 0 && (
+              <tfoot className="sticky bottom-0 bg-amber-100/90 font-bold border-t-2 border-amber-300 z-10 shadow-md">
+                <tr>
+                  {!hiddenColumns.no && <td className="py-2.5 px-2 text-center border-r border-[#e7dbdc] text-amber-900 font-mono">TỔNG</td>}
+                  {!hiddenColumns.business && <td className="py-2.5 px-2.5 text-center border-r border-[#e7dbdc]"></td>}
+                  {!hiddenColumns.charge && <td className="py-2.5 px-2.5 text-left border-r border-[#e7dbdc] font-extrabold text-amber-950">TỔNG CỘNG TẤT CẢ</td>}
+                  {!hiddenColumns.month && <td className="py-2.5 px-2.5 text-center border-r border-[#e7dbdc]"></td>}
+                  {grandTotals.map((v, idx) => {
+                    const type = safeTypeColumns[idx];
+                    if (hiddenColumns[`type_${type}`]) return null;
+                    const colKey = `type_${type}`;
+                    const w = columnWidths[colKey] || 120;
+                    return (
+                      <td 
+                        key={idx} 
+                        style={{ width: w, minWidth: w, maxWidth: w }}
+                        className="py-2.5 px-2.5 text-right border-r border-[#e7dbdc] font-mono font-bold text-amber-950 text-xs"
+                      >
+                        {v ? v.toLocaleString("en-US") : "0"}
+                      </td>
+                    );
+                  })}
+                  {!hiddenColumns.grandTotal && (
+                    <td 
+                      style={{ width: columnWidths["grandTotal"] || 140, minWidth: columnWidths["grandTotal"] || 140, maxWidth: columnWidths["grandTotal"] || 140 }}
+                      className="py-2.5 px-3 text-right font-mono font-extrabold text-amber-950 text-xs bg-amber-200/60"
+                    >
+                      {superGrandTotal ? superGrandTotal.toLocaleString("en-US") : "0"}
+                    </td>
+                  )}
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        {/* PAGINATION FOOTER */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border-t border-[#e7dbdc] text-xs font-medium text-slate-600">
+          <div className="flex items-center gap-2">
+            <span>Hiển thị</span>
+            <Select value={String(rowsPerPage)} onValueChange={(val) => setRowsPerPage(Number(val))}>
+              <SelectTrigger className="h-7 w-16 text-xs bg-white border border-slate-200 shadow-2xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="250">250</SelectItem>
+              </SelectContent>
+            </Select>
+            <span>dòng/trang (Tổng {totalRowsCount} dòng)</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={validCurrentPage <= 1}
+              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              title="Trang đầu"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={validCurrentPage <= 1}
+              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              title="Trang trước"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <span className="px-2 font-semibold text-slate-800">
+              Trang {validCurrentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={validCurrentPage >= totalPages}
+              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              title="Trang sau"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={validCurrentPage >= totalPages}
+              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              title="Trang cuối"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
