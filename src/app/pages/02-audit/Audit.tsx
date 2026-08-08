@@ -1487,12 +1487,12 @@ export function Audit() {
 
         {/* Right Panel - Results (Expanded to fill remaining space) */}
         <div 
-          className="flex-1 bg-white flex flex-col min-h-0 min-w-0 relative rounded-none overflow-hidden shadow-xs border border-slate-300 dark:border-slate-700"
+          className="unified-table-frame flex-1 bg-white flex flex-col min-h-0 min-w-0 relative rounded-none overflow-hidden shadow-xs border border-slate-300 dark:border-slate-700"
           style={{ paddingTop: "0px", paddingBottom: "0px", borderRadius: "0px", borderWidth: "1px", borderColor: "#cbd5e1", marginBottom: "0px", paddingLeft: "0px", marginLeft: "6px" }}
         >
           <div className="absolute inset-0 bg-pattern-green opacity-[0.02] pointer-events-none" />
           <div 
-            className="px-6 md:px-8 py-2.5 flex items-center justify-between border-b border-emerald-50 bg-white shrink-0 relative z-[200] rounded-t-none"
+            className="unified-table-frame-header px-6 md:px-8 py-2.5 flex items-center justify-between border-b border-emerald-50 bg-white shrink-0 relative z-[200] rounded-t-none"
             style={{ borderColor: "#e6e6e6" }}
           >
             <div className="flex items-center gap-4">

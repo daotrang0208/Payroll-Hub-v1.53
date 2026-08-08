@@ -1634,7 +1634,7 @@ export function TimesheetHub() {
                 marginLeft: "16px"
               }}
             >
-              <div className="table-container flex-1 flex flex-col min-h-0 relative bg-card border border-border rounded-none shadow-sm overflow-hidden" style={{ borderWidth: "0.5px" }}>
+              <div className="unified-table-frame table-container flex-1 flex flex-col min-h-0 relative bg-card border border-border rounded-none shadow-sm overflow-hidden" style={{ borderWidth: "0.5px" }}>
                 {(location.state?.from === "audit" || location.state?.from === "audit_applied" || (location.state?.from && String(location.state.from).includes("audit"))) && (
                   <div className="bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-between z-[150] shrink-0">
                     <div className="flex items-center gap-2 text-rose-800 text-xs font-bold">

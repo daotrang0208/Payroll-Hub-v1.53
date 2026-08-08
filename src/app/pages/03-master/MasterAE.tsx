@@ -51,7 +51,13 @@ import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import * as XLSX from "xlsx";
-import { parseMoneyToNumber, prepareDataForExport, formatMoneyVND } from "../../lib/utils/data-utils";
+import {
+  parseMoneyToNumber,
+  prepareDataForExport,
+  isChargeAmountColumn,
+  isNonSummableTextColumn,
+} from "../../lib/utils/data-utils";
+import { formatVNRobust } from "../../lib/utils/format-utils";
 import { Button } from "../../components/ui/button";
 import { useMasterAELogic, MasterAETab } from "../../hooks/useMasterAELogic";
 import { BulkPayment } from "../04-balance/BulkPayment";
@@ -328,6 +334,29 @@ export function MasterAE() {
     return raw;
   }, [activeTab, appData, currentPeriodVal, normalizeMonthLabel]);
 
+  const [tableSummaryState, setTableSummaryState] = useState<{
+    tab: string;
+    source: any[] | null;
+    rows: any[];
+  }>({ tab: "", source: null, rows: [] });
+
+  const handleFilteredTableDataChange = useCallback(
+    (rows: any[]) => {
+      setTableSummaryState({
+        tab: activeTab,
+        source: currentData.data,
+        rows,
+      });
+    },
+    [activeTab, currentData.data],
+  );
+
+  const currentSummaryRows =
+    tableSummaryState.tab === activeTab &&
+    tableSummaryState.source === currentData.data
+      ? tableSummaryState.rows
+      : currentData.data;
+
   const filteredSheet1Data = useMemo(() => {
     const raw = appData.Sheet1_AE?.data || [];
     const globalYear = currentPeriodVal.split(".")[1] || "2026";
@@ -344,27 +373,43 @@ export function MasterAE() {
     return filteredSheet1Data.reduce((acc, row: any) => acc + parseMoneyToNumber(row["TOTAL PAYMENT"] || row["Total Payment"] || row["Số tiền"] || row["Sale Incentive Amount"] || row["Grand Total"] || row["Payment Amount"] || 0), 0);
   }, [filteredSheet1Data]);
 
+  const currentTabTotalColumn = useMemo(() => {
+    const availableColumns = new Map<string, string>();
+    (currentData.headers || []).forEach((header: string) => {
+      availableColumns.set(String(header).toUpperCase(), header);
+    });
+    (currentData.data || []).slice(0, 20).forEach((row: any) => {
+      Object.keys(row || {}).forEach((key) => {
+        availableColumns.set(String(key).toUpperCase(), key);
+      });
+    });
+
+    const preferredColumns = [
+      "TOTAL PAYMENT",
+      "PAYMENT AMOUNT",
+      "SALE INCENTIVE AMOUNT",
+      "SALES/REHIRING AE GP AMOUNT (FINAL)",
+      "SỐ TIỀN",
+      "GRAND TOTAL",
+      "AMOUNT",
+      "PHÁT SINH TĂNG/GIẢM",
+      "SỐ TIỀN PHẠT",
+    ];
+
+    for (const preferredColumn of preferredColumns) {
+      const actualColumn = availableColumns.get(preferredColumn.toUpperCase());
+      if (actualColumn) return actualColumn;
+    }
+    return "";
+  }, [currentData.headers, currentData.data]);
+
   const currentTabTotalSum = useMemo(() => {
-    if (!currentData || !Array.isArray(currentData.data)) return 0;
-    return currentData.data.reduce((acc, row: any) => {
-      const val = parseMoneyToNumber(
-        row["TOTAL PAYMENT"] || 
-        row["Total Payment"] || 
-        row["Số tiền"] || 
-        row["Sale Incentive Amount"] || 
-        row["Grand Total"] || 
-        row["Payment Amount"] || 
-        row["SỐ TIỀN"] ||
-        row["Số Tiền"] ||
-        row["Amount"] ||
-        row["amount"] ||
-        row["Phát sinh tăng/giảm"] ||
-        row["Số tiền phạt"] ||
-        0
-      );
-      return acc + val;
+    if (!currentTabTotalColumn || !Array.isArray(currentSummaryRows)) return 0;
+    return currentSummaryRows.reduce((sum: number, row: any) => {
+      if (!row || row._isTotalRow) return sum;
+      return sum + parseMoneyToNumber(row[currentTabTotalColumn]);
     }, 0);
-  }, [currentData]);
+  }, [currentSummaryRows, currentTabTotalColumn]);
 
   const recordsByCategory = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -509,10 +554,13 @@ export function MasterAE() {
       .map((header: string) => {
         const h = header.toUpperCase();
         const isLabel = h === "LABEL";
+        const isTextOnlyColumn = isNonSummableTextColumn(header);
+        const isChargeAmount = isChargeAmountColumn(header);
         let type: "text" | "number" | "currency" | "label" = "text";
-        if (
+        if (isChargeAmount) {
+          type = "currency";
+        } else if (
           h.includes("TOTAL") ||
-          h.includes("CHARGE") ||
           h.includes("PAYMENT") ||
           h.includes("AE") ||
           h.includes("LỆCH") ||
@@ -557,6 +605,8 @@ export function MasterAE() {
         ) {
           type = "number";
         }
+
+        if (isTextOnlyColumn) type = "text";
         
         if (isLabel) type = "label";
 
@@ -686,7 +736,9 @@ export function MasterAE() {
           readOnly: isReadOnly,
           render: renderOption,
           width: header === "Nghiệp vụ" ? 140 : undefined,
-          showGrandTotal: type === "currency" || type === "number" || type === "money",
+          showGrandTotal:
+            !isTextOnlyColumn &&
+            (isChargeAmount || type === "currency" || type === "number"),
         };
       });
   }, [currentData.headers, currentData.data, activeTab, handleCellChange, appData.globalMonth]);
@@ -836,11 +888,11 @@ export function MasterAE() {
                         </div>
                       ) : (
                         <div 
-                          className="flex-1 flex flex-col min-h-0 w-full h-full px-0 py-0 m-0 relative overflow-hidden gap-0 bg-white border border-[#e7dbdc] dark:border-slate-700 shadow-xs z-10"
+                          className="unified-table-frame flex-1 flex flex-col min-h-0 w-full h-full px-0 py-0 m-0 relative overflow-hidden gap-0 bg-white border border-[#e7dbdc] dark:border-slate-700 shadow-xs z-10"
                           style={{ borderRadius: "0px", borderWidth: "1px", borderColor: "#cbd5e1" }}
                         >
                           {/* Top Toolbar Header with Settings Button */}
-                          <div className="px-4 py-2 border-b border-[#cbd5e1] flex items-center justify-between gap-4 shrink-0 select-none bg-white" style={{ height: "56px" }}>
+                          <div className="unified-table-frame-header px-4 py-2 border-b border-[#cbd5e1] flex items-center justify-between gap-4 shrink-0 select-none bg-white" style={{ height: "56px" }}>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center justify-center rounded-full border border-slate-200 bg-white shadow-3xs w-7 h-7 p-0 shrink-0">
                                 <Columns2 className="w-3.5 h-3.5 text-primary" />
@@ -923,7 +975,7 @@ export function MasterAE() {
                                 <div className="flex flex-col items-end border-l border-slate-200 pl-4">
                                   <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter whitespace-nowrap">TỔNG TIỀN</span>
                                   <div className="bg-slate-50 px-2 py-0.5 rounded border border-slate-100/80 mt-0.5">
-                                    <span className="text-xs font-black text-slate-800 tracking-tight font-mono">{formatMoneyVND(currentTabTotalSum).replace(" ₫", "")}đ</span>
+                                    <span className="text-xs font-black text-slate-800 tracking-tight font-mono">{formatVNRobust(currentTabTotalSum, 0)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -1022,6 +1074,7 @@ export function MasterAE() {
                             ref={tableRef}
                             columns={columns}
                             data={currentData.data}
+                            onFilteredDataChange={handleFilteredTableDataChange}
                             onCellChange={(row, col, val) => handleCellChange(activeTab, row, col, val)}
                             onDeleteRow={(row, idx) => handleDeleteRow(activeTab, row)}
                             onAddRow={handleAddRow}

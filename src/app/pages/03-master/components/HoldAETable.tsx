@@ -11,7 +11,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import { parseMoneyToNumber, removeVietnameseTones, formatMoneyVND } from "../../../lib/utils/data-utils";
+import {
+  parseMoneyToNumber,
+  removeVietnameseTones,
+  isChargeAmountColumn,
+  isNonSummableTextColumn,
+} from "../../../lib/utils/data-utils";
+import { formatVNRobust } from "../../../lib/utils/format-utils";
 import { toast } from "sonner";
 
 const HOLD_HIDDEN_COLS = [
@@ -147,13 +153,32 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
       return { ...raw, data: filteredRows };
     }, [appData.Hold_AE, appData.globalMonth, parseToMonthIndex]);
 
+    const [tableSummaryState, setTableSummaryState] = React.useState<{
+      source: any[] | null;
+      rows: any[];
+    }>({ source: null, rows: [] });
+
+    const handleFilteredTableDataChange = useCallback(
+      (rows: any[]) => {
+        setTableSummaryState({ source: filteredData.data, rows });
+      },
+      [filteredData.data],
+    );
+
+    const currentSummaryRows =
+      tableSummaryState.source === filteredData.data
+        ? tableSummaryState.rows
+        : filteredData.data;
+
     const holdAETotalSum = useMemo(() => {
-      if (!filteredData?.data) return 0;
-      return filteredData.data.reduce((sum: number, row: any) => {
-        const val = row && row["TOTAL PAYMENT"];
-        return sum + (parseMoneyToNumber(val) || 0);
+      if (!currentSummaryRows) return 0;
+      return currentSummaryRows.reduce((sum: number, row: any) => {
+        if (!row || row._isTotalRow || row._isPastMonthHoldOrCancel) {
+          return sum;
+        }
+        return sum + parseMoneyToNumber(row["TOTAL PAYMENT"]);
       }, 0);
-    }, [filteredData?.data]);
+    }, [currentSummaryRows]);
 
     // 3. Special cell change handler for Hold_AE
     const handleCellChange = useCallback(
@@ -399,6 +424,8 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
         .map((header: string) => {
           const h = header.toUpperCase();
           const isLabel = h === "LABEL";
+          const isTextOnlyColumn = isNonSummableTextColumn(header);
+          const isChargeAmount = isChargeAmountColumn(header);
           let type: "text" | "number" | "currency" | "label" = "text";
 
           let renderOption: ((value: any, row: any) => React.ReactNode) | undefined;
@@ -406,9 +433,10 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
             renderOption = (val, row) => val || row["_fileMonth"] || row["Tháng"] || "";
           }
 
-          if (
+          if (isChargeAmount) {
+            type = "currency";
+          } else if (
             h.includes("TOTAL") ||
-            h.includes("CHARGE") ||
             h.includes("PAYMENT") ||
             h.includes("AE") ||
             h.includes("LỆCH") ||
@@ -440,6 +468,7 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
               type = "currency";
             }
           }
+          if (isTextOnlyColumn) type = "text";
           if (isLabel) type = "label";
 
           const isReadOnly = [
@@ -524,7 +553,9 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
             readOnly: isReadOnly,
             render: renderOption,
             width: header === "Nghiệp vụ" ? 160 : undefined,
-            showGrandTotal: type === "currency" || type === "number" || type === "money",
+            showGrandTotal:
+              !isTextOnlyColumn &&
+              (isChargeAmount || type === "currency"),
           };
         });
     }, [filteredData.headers, filteredData.data, handleCellChange, appData.globalMonth]);
@@ -561,11 +592,11 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
 
     return (
       <div 
-        className="flex-1 flex flex-col min-h-0 w-full h-full px-0 py-0 m-0 relative overflow-hidden gap-0 bg-white border border-[#e7dbdc] dark:border-[#e7dbdc] shadow-xs z-10"
+        className="unified-table-frame flex-1 flex flex-col min-h-0 w-full h-full px-0 py-0 m-0 relative overflow-hidden gap-0 bg-white border border-[#e7dbdc] dark:border-[#e7dbdc] shadow-xs z-10"
         style={{ borderRadius: "0px", borderWidth: "1px", borderColor: "#cbd5e1" }}
       >
         {/* Top Toolbar Header with Settings Button */}
-        <div className="px-4 py-2 border-b border-[#cbd5e1] flex items-center justify-between gap-4 shrink-0 select-none bg-white" style={{ height: "56px" }}>
+        <div className="unified-table-frame-header px-4 py-2 border-b border-[#cbd5e1] flex items-center justify-between gap-4 shrink-0 select-none bg-white" style={{ height: "56px" }}>
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center rounded-full border border-slate-200 bg-white shadow-3xs w-7 h-7 p-0 shrink-0">
               <Columns2 className="w-3.5 h-3.5 text-primary" />
@@ -634,7 +665,7 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
               <div className="flex flex-col items-end border-l border-slate-200 pl-4">
                 <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter whitespace-nowrap">TỔNG TIỀN</span>
                 <div className="bg-slate-50 px-2 py-0.5 rounded border border-slate-100/80 mt-0.5">
-                  <span className="text-xs font-black text-slate-800 tracking-tight font-mono">{formatMoneyVND(holdAETotalSum).replace(" ₫", "").replace("đ", "")}đ</span>
+                  <span className="text-xs font-black text-slate-800 tracking-tight font-mono">{formatVNRobust(holdAETotalSum, 0)}</span>
                 </div>
               </div>
             </div>
@@ -733,6 +764,7 @@ export const HoldAETable = forwardRef<any, HoldAETableProps>(
             ref={ref}
             columns={columns}
             data={filteredData.data}
+            onFilteredDataChange={handleFilteredTableDataChange}
             onCellChange={handleCellChange}
             onDeleteRow={handleDeleteRow}
             onDeleteSelection={handleDeleteSelection}

@@ -176,7 +176,7 @@ export function buildPivotFromAppData(sheet1Rows: any[] = [], _holdRows: any[] =
 
   rosterRows.forEach((row) => {
     if (!row) return;
-    const center = row["chargeToCenterCode"] || row["CHARGE TO CENTER"] || row["Center"] || "";
+    const center = row["chargeToCenterCode"] || row["chargeToCenterMkt"] || row["CHARGE TO CENTER"] || row["Center"] || row["center"] || "";
     const duration = parseMoney(row["duration"] || row["DURATION"] || row["HOURS"] || 0);
     const salary = duration > 0 ? duration * 24 * 20000 : parseMoney(row["calculatedSalary"] || row["TOTAL PAYMENT"] || row["TOTAL"] || row["totalPayment"] || 0);
     const bu = row["bu"] || row["Business"] || "AHN";

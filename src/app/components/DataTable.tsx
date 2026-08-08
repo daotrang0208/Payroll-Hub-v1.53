@@ -50,7 +50,13 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { toast } from "sonner";
-import { parseMoneyToNumber, formatNumber, formatIdNumber } from "../lib/utils/data-utils";
+import {
+  parseMoneyToNumber,
+  formatNumber,
+  formatIdNumber,
+  isChargeAmountColumn,
+  isNonSummableTextColumn,
+} from "../lib/utils/data-utils";
 import { formatVNRobust } from "../lib/utils/format-utils";
 import { ColumnFormatDialog } from "./ColumnFormatDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -150,7 +156,13 @@ const isNoCol = (k: string): boolean => {
 };
 
 const isProtectedNumericColumn = (key: string): boolean => {
-  if (isIdColumnKey(key) || isNoCol(key)) return true;
+  if (
+    isIdColumnKey(key) ||
+    isNoCol(key) ||
+    isNonSummableTextColumn(key)
+  ) {
+    return true;
+  }
   const upper = String(key || "").trim().toUpperCase();
   return (
     upper.includes("ACCOUNT") ||
@@ -1023,7 +1035,13 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     const [columnTypes, setColumnTypes] = useState<Record<string, string>>({});
 
     const formatValue = (value: any, type?: string, colKey?: string) => {
-      const effectiveType = (colKey && columnTypes[colKey]) || type || "text";
+      const configuredType = (colKey && columnTypes[colKey]) || type || "text";
+      const effectiveType =
+        colKey && isNonSummableTextColumn(colKey)
+          ? "text"
+          : colKey && isChargeAmountColumn(colKey)
+            ? "currency"
+            : configuredType;
 
       if (colKey) {
         const kUp = String(colKey).toUpperCase().trim();
@@ -1536,12 +1554,6 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     const hasActiveFilters = activeFilters.length > 0;
 
     // Keyboard shortcuts are handled in the main listener below
-
-    useEffect(() => {
-      if (onFilteredDataChange) {
-        onFilteredDataChange(filteredAndSortedData);
-      }
-    }, [filteredAndSortedData, onFilteredDataChange]);
 
     const totalPages =
       itemsPerPage === Infinity
@@ -3147,6 +3159,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                         const effectiveType = columnTypes[col.key] || col.type;
                         if (isProtectedNumericColumn(col.key)) return false;
                         let colIsNumeric =
+                          isChargeAmountColumn(col.key) ||
                           effectiveType === "number" ||
                           effectiveType === "currency" ||
                           effectiveType === "money";

@@ -1444,7 +1444,85 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > main:nth-of-
   flex-direction: column !important;
 }
 
+/* Unified table frame: title, grid and pagination share one outer border. */
+div.unified-table-frame,
+section.unified-table-frame {
+  --table-frame-border: var(--grid-line-color, var(--border, #cbd5e1));
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  border: 1px solid var(--table-frame-border) !important;
+  border-radius: 0 !important;
+  background: var(--card, #ffffff) !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
 
+.unified-table-frame-header {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 1px solid var(--table-frame-border, #cbd5e1) !important;
+  border-left: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* A DataTable is framed by default when it is used on its own. */
+div.data-table-wrapper,
+div.audit-data-table-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  border: 1px solid var(--table-frame-border, var(--grid-line-color, var(--border, #cbd5e1))) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
+
+/* When a title wrapper already owns the frame, remove the inner duplicate border. */
+.unified-table-frame .data-table-wrapper,
+.unified-table-frame .audit-data-table-wrapper {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* The grid and pagination are flush and separated by exactly one horizontal line. */
+.data-table-wrapper > .table-footer-pagination,
+.audit-data-table-wrapper > .table-footer-pagination,
+.unified-table-frame > .table-footer-pagination {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--table-frame-border, #cbd5e1) !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.unified-table-frame > .data-table-wrapper,
+.unified-table-frame > .audit-data-table-wrapper,
+.unified-table-frame > .flex-1 {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
 
 
 

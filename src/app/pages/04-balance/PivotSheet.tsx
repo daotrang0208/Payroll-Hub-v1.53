@@ -47,7 +47,7 @@ export function formatNumber(val: any): string {
 
 export function formatMoneyVND(val: any): string {
   const n = parseMoneyToNumber(val);
-  return n.toLocaleString('vi-VN') + ' VNĐ';
+  return n.toLocaleString('vi-VN');
 }
 
 export function removeVietnameseTones(str: string): string {
@@ -388,7 +388,18 @@ export function PivotSheet() {
     return "";
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(50);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
+    try {
+      const savedValue = localStorage.getItem("pivot_master_rows_per_page");
+      if (savedValue === "all") return Infinity;
+      const parsedValue = Number(savedValue);
+      return Number.isFinite(parsedValue) && parsedValue > 0
+        ? parsedValue
+        : 50;
+    } catch {
+      return 50;
+    }
+  });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hiddenColumns, setHiddenColumns] = useState<Record<string, boolean>>({});
   const [sortField, setSortField] = useState<string | null>(null);
@@ -683,6 +694,17 @@ export function PivotSheet() {
   useEffect(() => {
     setCurrentPage(1);
   }, [rowsPerPage, groupedData, typeColumns]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "pivot_master_rows_per_page",
+        rowsPerPage === Infinity ? "all" : String(rowsPerPage),
+      );
+    } catch {
+      // ignore pagination preference write error
+    }
+  }, [rowsPerPage]);
 
   const processFileBuffers = useCallback(async (fileList: { name: string; bank?: string; buffer: ArrayBuffer; month: string }[]) => {
     const newGroupedData: Record<string, Record<string, Record<string, Record<string, number>>>> = {};
@@ -1214,11 +1236,24 @@ export function PivotSheet() {
   }, [allFlatRows, safeTypeColumns, sortField, sortDirection]);
 
   const totalRowsCount = sortedFlatRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRowsCount / rowsPerPage));
+  const totalPages =
+    rowsPerPage === Infinity
+      ? 1
+      : Math.max(1, Math.ceil(totalRowsCount / rowsPerPage));
   const validCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = totalRowsCount === 0 ? 0 : (validCurrentPage - 1) * rowsPerPage;
-  const endIndex = Math.min(startIndex + rowsPerPage, totalRowsCount);
-  const paginatedRows = sortedFlatRows.slice(startIndex, endIndex);
+  const startIndex =
+    totalRowsCount === 0 || rowsPerPage === Infinity
+      ? 0
+      : (validCurrentPage - 1) * rowsPerPage;
+  const endIndex =
+    rowsPerPage === Infinity
+      ? totalRowsCount
+      : Math.min(startIndex + rowsPerPage, totalRowsCount);
+  const paginatedRows =
+    rowsPerPage === Infinity
+      ? sortedFlatRows
+      : sortedFlatRows.slice(startIndex, endIndex);
+  const displayedRangeStart = totalRowsCount === 0 ? 0 : startIndex + 1;
 
   const renderRows = () => {
     if (paginatedRows.length === 0) {
@@ -1594,7 +1629,7 @@ export function PivotSheet() {
       </div>
 
       {/* MAIN DATA TABLE */}
-      <div className="flex-1 min-h-0 bg-white rounded-none border-0 flex flex-col overflow-hidden">
+      <div className="unified-table-frame flex-1 min-h-0 bg-white rounded-none border border-[#e7dbdc] shadow-sm flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto relative">
           <table className="w-full border-collapse text-left text-xs select-none">
             <thead className="sticky top-0 z-20 bg-slate-100 text-slate-700 border-b border-[#e7dbdc] font-bold shadow-2xs">
@@ -1731,61 +1766,88 @@ export function PivotSheet() {
           </table>
         </div>
 
-        {/* PAGINATION FOOTER */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border-t border-[#e7dbdc] text-xs font-medium text-slate-600">
-          <div className="flex items-center gap-2">
-            <span>Hiển thị</span>
-            <Select value={String(rowsPerPage)} onValueChange={(val) => setRowsPerPage(Number(val))}>
-              <SelectTrigger className="min-h-[10px] h-[10px] w-[85px] text-[10px] px-1.5 py-0 leading-none bg-white border border-slate-200 shadow-2xs">                
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="25">25 dòng</SelectItem>
-                <SelectItem value="50">50 dòng</SelectItem>
-                <SelectItem value="999999">Tất cả</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="text-slate-300">|</span>
-            <span>Tổng: <strong className="font-semibold text-slate-800">{totalRowsCount}</strong> dòng</span>
+        {/* PAGINATION FOOTER — đồng bộ với các bảng Master */}
+        <div
+          className="flex min-h-[52px] flex-wrap items-center justify-between gap-3 border-t border-[#e7dbdc] bg-[#FDFBF7] px-6 py-1.5 text-slate-600"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="ml-2 whitespace-nowrap text-[11px] font-medium text-slate-600">
+                Hiển thị:
+              </span>
+              <Select
+                value={rowsPerPage === Infinity ? "all" : String(rowsPerPage)}
+                onValueChange={(value) => {
+                  setRowsPerPage(
+                    value === "all" ? Infinity : Number(value),
+                  );
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger
+                  className="rounded-full border-slate-200 bg-white px-3 font-sans text-[11px] font-bold normal-case text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+                  style={{ height: "26px", width: "95px" }}
+                >
+                  <SelectValue placeholder="Chọn..." />
+                </SelectTrigger>
+                <SelectContent className="z-[99999] border-[#e7dbdc] bg-popover font-sans opacity-100">
+                  <SelectItem value="10" className="font-sans text-[11px] font-medium normal-case">10 dòng</SelectItem>
+                  <SelectItem value="20" className="font-sans text-[11px] font-medium normal-case">20 dòng</SelectItem>
+                  <SelectItem value="50" className="font-sans text-[11px] font-medium normal-case">50 dòng</SelectItem>
+                  <SelectItem value="100" className="font-sans text-[11px] font-medium normal-case">100 dòng</SelectItem>
+                  <SelectItem value="all" className="font-sans text-[11px] font-medium normal-case">Tất cả</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <span className="whitespace-nowrap text-[10.5px] font-semibold text-slate-500">
+              {displayedRangeStart} - {endIndex} / {totalRowsCount} dòng
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex h-6 items-center gap-1 border-l border-slate-200 pl-4">
             <button
+              type="button"
               onClick={() => setCurrentPage(1)}
               disabled={validCurrentPage <= 1}
-              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              className="flex h-7 w-7 cursor-pointer select-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-3xs transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white"
               title="Trang đầu"
             >
-              <ChevronsLeft className="w-4 h-4" />
+              <ChevronsLeft className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={validCurrentPage <= 1}
-              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              className="flex h-7 w-7 cursor-pointer select-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-3xs transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white"
               title="Trang trước"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </button>
 
-            <span className="px-2 font-semibold text-slate-800">
-              Trang {validCurrentPage} / {totalPages}
+            <span className="min-w-[90px] whitespace-nowrap px-3 text-center font-display text-[10.5px] font-black uppercase tracking-widest text-slate-700/80">
+              TRANG {validCurrentPage} / {totalPages}
             </span>
 
             <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              type="button"
+              onClick={() =>
+                setCurrentPage((page) => Math.min(totalPages, page + 1))
+              }
               disabled={validCurrentPage >= totalPages}
-              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              className="flex h-7 w-7 cursor-pointer select-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-3xs transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white"
               title="Trang sau"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
             <button
+              type="button"
               onClick={() => setCurrentPage(totalPages)}
               disabled={validCurrentPage >= totalPages}
-              className="p-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white cursor-pointer"
+              className="flex h-7 w-7 cursor-pointer select-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-3xs transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white"
               title="Trang cuối"
             >
-              <ChevronsRight className="w-4 h-4" />
+              <ChevronsRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

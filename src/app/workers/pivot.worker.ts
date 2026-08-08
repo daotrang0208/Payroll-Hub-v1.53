@@ -4,6 +4,7 @@ import {
   isSheetOneMasterSheetName,
   normalizeMasterSheetName,
 } from "../lib/utils/master-sheet-utils";
+import { buildPivotFromAppData } from "../lib/utils/pivot-utils";
 
 function extractBankName(filename: string, fallbackBank?: string): string {
   const upper = filename.toUpperCase();
@@ -340,8 +341,21 @@ function processExcelData(fileList: { name: string; bank?: string; buffer: Array
 if (typeof window === "undefined" && typeof self !== "undefined") {
   self.onmessage = async (e: MessageEvent) => {
     try {
-      const { fileList } = e.data;
-      const result = processExcelData(fileList);
+      const {
+        fileList,
+        processedSheet1Rows,
+        processedRosterRows,
+      } = e.data || {};
+      const result = Array.isArray(processedSheet1Rows)
+        ? {
+            ...buildPivotFromAppData(
+              processedSheet1Rows,
+              [],
+              Array.isArray(processedRosterRows) ? processedRosterRows : [],
+            ),
+            logs: [],
+          }
+        : processExcelData(Array.isArray(fileList) ? fileList : []);
       self.postMessage({ success: true, result });
     } catch (err: any) {
       self.postMessage({ success: false, error: err.message });
