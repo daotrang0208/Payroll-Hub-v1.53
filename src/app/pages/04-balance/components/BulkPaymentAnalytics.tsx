@@ -25,15 +25,15 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Tháng phát sinh",
     label: "Tháng phát sinh",
     type: "text",
-    width: 125,
+    width: 115,
     readOnly: true,
   },
-  { key: "BU", label: "BU", type: "text", width: 105, readOnly: true },
+  { key: "BU", label: "BU", type: "text", width: 85, readOnly: true },
   {
     key: "Tổng chi phí Gross Pay",
     label: "Tổng chi phí Gross Pay",
     type: "money",
-    width: 190,
+    width: 155,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -41,7 +41,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Thanh toán lương",
     label: "Thanh toán lương",
     type: "money",
-    width: 175,
+    width: 150,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -49,7 +49,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Giữ lại phát sinh",
     label: "Giữ lại phát sinh tháng",
     type: "money",
-    width: 185,
+    width: 160,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -57,7 +57,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Số dư giữ lại đầu kỳ",
     label: "Số dư HOLD đầu kỳ",
     type: "money",
-    width: 175,
+    width: 155,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -65,7 +65,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Thanh toán HOLD",
     label: "Thanh toán HOLD trong tháng",
     type: "money",
-    width: 205,
+    width: 175,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -73,7 +73,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "CANCEL HOLD",
     label: "CANCEL HOLD",
     type: "money",
-    width: 145,
+    width: 125,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -81,7 +81,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "BONUS",
     label: "BONUS thanh toán",
     type: "money",
-    width: 155,
+    width: 135,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -89,7 +89,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Số dư giữ lại cuối kỳ",
     label: "Số dư HOLD cuối kỳ",
     type: "money",
-    width: 180,
+    width: 160,
     readOnly: true,
     showGrandTotal: true,
     cellClassName: "font-extrabold text-rose-700 bg-rose-50/40",
@@ -98,7 +98,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Tổng tiền thanh toán",
     label: "Tổng tiền thanh toán trong tháng",
     type: "money",
-    width: 215,
+    width: 180,
     readOnly: true,
     showGrandTotal: true,
     cellClassName: "font-extrabold text-emerald-700 bg-emerald-50/40",
@@ -107,7 +107,7 @@ const SUMMARY_COLUMNS: Column[] = [
     key: "Chênh lệch đối soát Gross Pay",
     label: "Chênh lệch Gross Pay",
     type: "money",
-    width: 175,
+    width: 155,
     readOnly: true,
     showGrandTotal: true,
   },
@@ -249,7 +249,7 @@ export function BulkPaymentAnalytics({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 divide-x divide-slate-300 bg-white sm:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-5 divide-x divide-slate-300 bg-white">
           {kpis.map((kpi) => (
             <div key={kpi.label} className="min-w-0 px-3 py-2">
               <div className="truncate text-[8px] font-bold uppercase tracking-wider text-slate-500">
@@ -277,15 +277,18 @@ export function BulkPaymentAnalytics({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <DataTable
+          key={`${analytics.currentPeriod}|${effectiveSelectedBusiness}`}
           columns={SUMMARY_COLUMNS}
           data={filteredRows}
           isEditable={false}
-          storageKey="analys_bulkpayment_summary_v4"
+          storageKey="analys_bulkpayment_summary_v5"
           showFooter={true}
           showPagination={true}
           defaultItemsPerPage={50}
           stickyHeader={true}
+          stickyFirstColumn={true}
           striped={true}
+          ignoreSavedHiddenColumns={true}
           headerClassName="bg-[#FAF9F6] text-slate-800 border-slate-300 font-bold text-[9px] uppercase tracking-wider text-center"
           footerClassName="bg-[#FAF9F6] text-slate-800 border-t border-slate-300 font-bold text-[10px]"
         />
