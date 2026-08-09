@@ -25,6 +25,7 @@ export interface PayrollTrackingRow {
   "Lương phải trả kỳ báo cáo": number;
   "Đã trả lương kỳ báo cáo": number;
   "Giữ lại phát sinh trong kỳ": number;
+  "Tổng HOLD theo tháng phát sinh": number;
   "Giữ lại chuyển sang": number;
   "ADD trong kỳ": number;
   "CANCEL trong kỳ": number;
@@ -34,6 +35,7 @@ export interface PayrollTrackingRow {
   "Tổng còn phải thanh toán": number;
   "Ngày trả lương kỳ báo cáo": string;
   "Ngày trả khoản ADD": string;
+  "Các tháng thanh toán HOLD": string;
   "Trạng thái": PayrollTrackingStatus;
   "Ghi chú": string;
 }
@@ -53,18 +55,19 @@ export interface PayrollTrackingTotals {
 
 export interface PayrollBuMonthSummaryRow {
   id: string;
-  "Tháng phát sinh": string;
+  "Tháng HOLD": string;
+  "Kỳ báo cáo": string;
   BU: string;
-  "Tổng chi phí Gross Pay": number;
-  "Thanh toán lương": number;
-  "Số dư giữ lại đầu kỳ": number;
-  HOLD: number;
-  ADD: number;
-  CANCEL: number;
-  BONUS: number;
-  "Số dư giữ lại cuối kỳ": number;
-  "Tổng tiền thanh toán": number;
-  "Chênh lệch đối soát Gross Pay": number;
+  "HOLD phát sinh": number;
+  "Số dư HOLD đầu kỳ": number;
+  "Thanh toán HOLD tại kỳ": number;
+  "Tháng thanh toán tại kỳ": string;
+  "Các tháng đã thanh toán": string;
+  "CANCEL tại kỳ": number;
+  "BONUS tại kỳ": number;
+  "Số dư HOLD còn lại": number;
+  "Diễn biến tại kỳ": string;
+  "Trạng thái HOLD": string;
 }
 
 export interface BulkPaymentAnalyticsResult {
@@ -136,6 +139,7 @@ interface BalanceBucket {
   addInPeriod: number;
   cancelInPeriod: number;
   addPaymentDates: string[];
+  addPaymentPeriods: Map<string, MonthPeriod>;
   operations: Set<HoldOperation>;
   notes: Set<string>;
 }
@@ -406,8 +410,7 @@ const classifyHoldOperation = (row: any): HoldOperation | null => {
 };
 
 const isUsableHoldRow = (row: any): boolean => {
-  if (!row || row._dimmed) return false;
-  if (normalizeText(row["Lệnh"]) === "-") return false;
+  if (!row) return false;
   return !normalizeText(row["Sheet Source"]).includes("SHEET 1");
 };
 
@@ -657,6 +660,7 @@ export function buildBulkPaymentAnalytics({
         addInPeriod: 0,
         cancelInPeriod: 0,
         addPaymentDates: [],
+        addPaymentPeriods: new Map<string, MonthPeriod>(),
         operations: new Set<HoldOperation>(),
         notes: new Set<string>(),
       };
@@ -692,9 +696,12 @@ export function buildBulkPaymentAnalytics({
       if (entry.operation === "HOLD") {
         bucket.holdGross += entry.amount;
       } else if (entry.operation === "ADD") {
-        if (reportCompare < 0) bucket.addBeforePeriod += entry.amount;
-        else if (reportCompare === 0) {
+        if (reportCompare < 0) {
+          bucket.addBeforePeriod += entry.amount;
+          bucket.addPaymentPeriods.set(entry.reportPeriod.key, entry.reportPeriod);
+        } else if (reportCompare === 0) {
           bucket.addInPeriod += entry.amount;
+          bucket.addPaymentPeriods.set(entry.reportPeriod.key, entry.reportPeriod);
           if (entry.paymentDate) bucket.addPaymentDates.push(entry.paymentDate);
         }
       } else if (entry.operation === "CANCEL") {
@@ -758,6 +765,7 @@ export function buildBulkPaymentAnalytics({
         const currentHold = isCurrentOccurrence
           ? Math.max(calculatedCurrentHold, bucket.holdGross)
           : 0;
+        const originalHold = Math.max(bucket.holdGross, currentHold);
         const openingBalance = carryIn + currentHold;
         const remainingBalance = Math.max(
           openingBalance - bucket.addInPeriod + bucket.cancelInPeriod,
@@ -785,7 +793,7 @@ export function buildBulkPaymentAnalytics({
         if (
           salaryPayable === 0 &&
           salaryPaid === 0 &&
-          currentHold === 0 &&
+          originalHold === 0 &&
           carryIn === 0 &&
           bucket.addInPeriod === 0 &&
           bucket.cancelInPeriod === 0 &&
@@ -833,6 +841,7 @@ export function buildBulkPaymentAnalytics({
           "Lương phải trả kỳ báo cáo": salaryPayable,
           "Đã trả lương kỳ báo cáo": salaryPaid,
           "Giữ lại phát sinh trong kỳ": currentHold,
+          "Tổng HOLD theo tháng phát sinh": originalHold,
           "Giữ lại chuyển sang": carryIn,
           "ADD trong kỳ": bucket.addInPeriod,
           "CANCEL trong kỳ": bucket.cancelInPeriod,
@@ -843,6 +852,12 @@ export function buildBulkPaymentAnalytics({
           "Ngày trả lương kỳ báo cáo":
             isCurrentOccurrence ? group.salaryPaymentDates.at(-1) || "" : "",
           "Ngày trả khoản ADD": bucket.addPaymentDates.at(-1) || "",
+          "Các tháng thanh toán HOLD": Array.from(
+            bucket.addPaymentPeriods.values(),
+          )
+            .sort(comparePeriods)
+            .map(formatPeriod)
+            .join(", "),
           "Trạng thái": status,
           "Ghi chú": Array.from(notes).slice(0, 6).join("; "),
         });
@@ -868,45 +883,78 @@ export function buildBulkPaymentAnalytics({
   const currentRows = buildRowsForPeriod(defaultPeriod);
   const currentTotals = sumTrackingRows(currentRows);
   const summaryMap = new Map<string, PayrollBuMonthSummaryRow>();
+  const paymentMonthsBySummary = new Map<string, Set<string>>();
 
   currentRows.forEach((row) => {
     const key = `${row.BU}|${row["Tháng phát sinh"]}`;
     const existing = summaryMap.get(key) || {
       id: key,
-      "Tháng phát sinh": row["Tháng phát sinh"],
+      "Tháng HOLD": row["Tháng phát sinh"],
+      "Kỳ báo cáo": row["Tháng báo cáo"],
       BU: row.BU,
-      "Tổng chi phí Gross Pay": 0,
-      "Thanh toán lương": 0,
-      "Số dư giữ lại đầu kỳ": 0,
-      HOLD: 0,
-      ADD: 0,
-      CANCEL: 0,
-      BONUS: 0,
-      "Số dư giữ lại cuối kỳ": 0,
-      "Tổng tiền thanh toán": 0,
-      "Chênh lệch đối soát Gross Pay": 0,
+      "HOLD phát sinh": 0,
+      "Số dư HOLD đầu kỳ": 0,
+      "Thanh toán HOLD tại kỳ": 0,
+      "Tháng thanh toán tại kỳ": "",
+      "Các tháng đã thanh toán": "",
+      "CANCEL tại kỳ": 0,
+      "BONUS tại kỳ": 0,
+      "Số dư HOLD còn lại": 0,
+      "Diễn biến tại kỳ": "Không phát sinh",
+      "Trạng thái HOLD": "Chưa thanh toán",
     };
 
-    existing["Tổng chi phí Gross Pay"] +=
-      row["Lương phải trả kỳ báo cáo"];
-    existing["Thanh toán lương"] += row["Đã trả lương kỳ báo cáo"];
-    existing["Số dư giữ lại đầu kỳ"] += row["Giữ lại chuyển sang"];
-    existing.HOLD += row["Giữ lại phát sinh trong kỳ"];
-    existing.ADD += row["ADD trong kỳ"];
-    existing.CANCEL += row["CANCEL trong kỳ"];
-    existing.BONUS += row["BONUS trong kỳ"];
-    existing["Số dư giữ lại cuối kỳ"] += row["Còn số dư"];
-    existing["Tổng tiền thanh toán"] += row["Tổng thực trả trong kỳ"];
-    existing["Chênh lệch đối soát Gross Pay"] =
-      existing["Tổng chi phí Gross Pay"] -
-      existing["Thanh toán lương"] -
-      existing.HOLD;
+    existing["HOLD phát sinh"] += row["Tổng HOLD theo tháng phát sinh"];
+    existing["Số dư HOLD đầu kỳ"] += row["Giữ lại chuyển sang"];
+    existing["Thanh toán HOLD tại kỳ"] += row["ADD trong kỳ"];
+    existing["CANCEL tại kỳ"] += row["CANCEL trong kỳ"];
+    existing["BONUS tại kỳ"] += row["BONUS trong kỳ"];
+    existing["Số dư HOLD còn lại"] += row["Còn số dư"];
+
+    const paymentMonths = paymentMonthsBySummary.get(key) || new Set<string>();
+    row["Các tháng thanh toán HOLD"]
+      .split(",")
+      .map((month) => month.trim())
+      .filter(Boolean)
+      .forEach((month) => paymentMonths.add(month));
+    paymentMonthsBySummary.set(key, paymentMonths);
     summaryMap.set(key, existing);
   });
 
-  const summaryRows = Array.from(summaryMap.values()).sort((left, right) => {
-    const leftPeriod = parseMonthPeriod(left["Tháng phát sinh"]);
-    const rightPeriod = parseMonthPeriod(right["Tháng phát sinh"]);
+  const summaryRows = Array.from(summaryMap.values()).map((row) => {
+    const paymentMonths = Array.from(
+      paymentMonthsBySummary.get(row.id) || [],
+    ).sort((left, right) => {
+      const leftPeriod = parseMonthPeriod(left);
+      const rightPeriod = parseMonthPeriod(right);
+      return leftPeriod && rightPeriod
+        ? comparePeriods(leftPeriod, rightPeriod)
+        : left.localeCompare(right, "vi");
+    });
+    row["Các tháng đã thanh toán"] = paymentMonths.join(", ");
+    row["Tháng thanh toán tại kỳ"] =
+      row["Thanh toán HOLD tại kỳ"] > 0 ? row["Kỳ báo cáo"] : "";
+
+    const movements: string[] = [];
+    if (row["Tháng HOLD"] === row["Kỳ báo cáo"] && row["HOLD phát sinh"] > 0) {
+      movements.push("HOLD mới");
+    }
+    if (row["Thanh toán HOLD tại kỳ"] > 0) movements.push("Thanh toán HOLD");
+    if (row["CANCEL tại kỳ"] > 0) movements.push("CANCEL");
+    if (row["BONUS tại kỳ"] > 0) movements.push("BONUS");
+    row["Diễn biến tại kỳ"] = movements.join(" + ") || "Không phát sinh";
+
+    if (row["Số dư HOLD còn lại"] <= 0 && row["HOLD phát sinh"] > 0) {
+      row["Trạng thái HOLD"] = "Đã tất toán";
+    } else if (row["Thanh toán HOLD tại kỳ"] > 0) {
+      row["Trạng thái HOLD"] = "Thanh toán một phần";
+    } else {
+      row["Trạng thái HOLD"] = "Chưa thanh toán";
+    }
+    return row;
+  }).sort((left, right) => {
+    const leftPeriod = parseMonthPeriod(left["Tháng HOLD"]);
+    const rightPeriod = parseMonthPeriod(right["Tháng HOLD"]);
     if (leftPeriod && rightPeriod) {
       const periodCompare = comparePeriods(leftPeriod, rightPeriod);
       if (periodCompare !== 0) return periodCompare;

@@ -2972,9 +2972,9 @@ export function BulkPayment({
         <div
           className="px-3 border-b border-slate-200/80 flex flex-row items-center justify-between w-full gap-3 shrink-0 select-none box-border"
           style={{
-            height: "73px",
-            minHeight: "73px",
-            maxHeight: "73px",
+            height: rightPanelTab === "visuals" ? "52px" : "73px",
+            minHeight: rightPanelTab === "visuals" ? "52px" : "73px",
+            maxHeight: rightPanelTab === "visuals" ? "52px" : "73px",
             backgroundColor:
               "color-mix(in srgb, var(--primary) 5%, var(--card, #fff))",
           }}
@@ -3041,7 +3041,7 @@ export function BulkPayment({
                 </div>
                 {rightPanelTab === "visuals" && (
                   <span className="hidden max-w-[250px] truncate pl-1 text-[7px] font-bold uppercase tracking-[0.1em] text-slate-500 xl:block">
-                    Đối soát thanh toán theo BU & tháng phát sinh
+                    Theo dõi HOLD theo tháng phát sinh
                   </span>
                 )}
               </div>
@@ -3115,7 +3115,7 @@ export function BulkPayment({
 
             {displayBankExportData.length > 0 &&
               rightPanelTab === "visuals" && (
-                <div className="ml-1 flex min-w-0 flex-1 items-center gap-2 border-l border-slate-300 pl-3">
+                <div className="ml-1 flex h-8 min-w-0 flex-1 items-center gap-1.5 border-l border-slate-300 pl-2.5">
                   <div className="hidden shrink-0 flex-col gap-0.5 2xl:flex">
                     <span className="text-[7px] font-bold uppercase tracking-widest text-slate-500">
                       Tháng báo cáo
@@ -3127,7 +3127,7 @@ export function BulkPayment({
 
                   <label
                     htmlFor="analys-business-filter"
-                    className="hidden whitespace-nowrap text-[8px] font-extrabold uppercase tracking-wider text-slate-600 xl:block"
+                    className="hidden whitespace-nowrap text-[7px] font-extrabold uppercase tracking-wider text-slate-500 xl:block"
                   >
                     BU theo dõi
                   </label>
@@ -3138,7 +3138,7 @@ export function BulkPayment({
                       onChange={(event) =>
                         setAnalysSelectedBusiness(event.target.value)
                       }
-                      className="h-8 w-[clamp(128px,13vw,180px)] appearance-none border border-slate-300 bg-white pl-3 pr-8 text-[9px] font-bold uppercase text-slate-700 outline-none transition-colors hover:border-slate-400 focus:border-[#781D1D]"
+                      className="h-7 w-[clamp(112px,11vw,152px)] appearance-none rounded-full border border-primary/20 bg-white pl-3 pr-7 text-[9px] font-bold uppercase text-slate-700 outline-none transition-colors hover:border-primary/40 focus:border-primary"
                       title="Chọn BU theo dõi trên bảng ANALYS"
                     >
                       <option value={ALL_ANALYS_BUSINESS_UNITS}>
@@ -3150,7 +3150,7 @@ export function BulkPayment({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
                   </div>
 
                   {analysSearchVisible && (
@@ -3162,7 +3162,7 @@ export function BulkPayment({
                       onChange={(event) =>
                         setAnalysSearchTerm(event.target.value)
                       }
-                      className="h-8 w-full rounded-full border border-primary/20 bg-[var(--card,#fff)] pl-8 pr-8 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-primary/40 focus:border-primary"
+                      className="h-7 w-full rounded-full border border-primary/20 bg-[var(--card,#fff)] pl-8 pr-8 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-primary/40 focus:border-primary"
                       placeholder="Tìm BU hoặc tháng…"
                       aria-label="Tìm kiếm trong bảng ANALYS"
                     />

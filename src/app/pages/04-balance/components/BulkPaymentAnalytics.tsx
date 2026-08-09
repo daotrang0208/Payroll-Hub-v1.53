@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { History } from "lucide-react";
 import { DataTable, type Column } from "../../../components/DataTable";
 import { type BulkPaymentAnalyticsResult } from "../../../lib/utils/bulk-payment-analytics";
 
@@ -10,19 +11,22 @@ interface BulkPaymentAnalyticsProps {
   onSearchTermChange: (value: string) => void;
 }
 
-const CONTEXT_GROUP = "Thông tin chung";
-const PAYMENT_GROUP = "Chi phí & thanh toán";
-const ADJUSTMENT_GROUP = "Điều chỉnh trong kỳ";
-const BALANCE_GROUP = "Số dư & đối soát";
+const CONTEXT_GROUP = "Thông tin kỳ theo dõi";
+const ORIGIN_GROUP = "Nguồn gốc HOLD";
+const MOVEMENT_GROUP = "Phát sinh tại kỳ báo cáo";
+const HISTORY_GROUP = "Lịch sử thanh toán";
+const RESULT_GROUP = "Kết quả đến cuối kỳ";
 
 const CONTEXT_GROUP_STYLE =
   "!bg-[#EEE9EC] !text-[#61575C] border-slate-300 tracking-[0.12em]";
-const PAYMENT_GROUP_STYLE =
-  "!bg-[#F1EDEE] !text-[#554C51] border-slate-300 tracking-[0.12em]";
-const ADJUSTMENT_GROUP_STYLE =
+const ORIGIN_GROUP_STYLE =
+  "!bg-[#FFF5DA] !text-[#8A5A00] border-slate-300 tracking-[0.12em]";
+const MOVEMENT_GROUP_STYLE =
   "!bg-[#F1E6E7] !text-[#781D1D] border-slate-300 tracking-[0.12em]";
-const BALANCE_GROUP_STYLE =
-  "!bg-[#EEE9EC] !text-[#61575C] border-slate-300 tracking-[0.12em]";
+const HISTORY_GROUP_STYLE =
+  "!bg-[#EAF7FB] !text-[#176B87] border-slate-300 tracking-[0.12em]";
+const RESULT_GROUP_STYLE =
+  "!bg-[#EAF5EF] !text-[#16734A] border-slate-300 tracking-[0.12em]";
 
 const SUMMARY_COLUMNS: Column[] = [
   {
@@ -38,16 +42,6 @@ const SUMMARY_COLUMNS: Column[] = [
     readOnly: true,
   },
   {
-    key: "Tháng phát sinh",
-    label: "Tháng phát sinh",
-    group: CONTEXT_GROUP,
-    groupHeaderClassName: CONTEXT_GROUP_STYLE,
-    type: "text",
-    width: 108,
-    align: "center",
-    readOnly: true,
-  },
-  {
     key: "BU",
     label: "BU",
     group: CONTEXT_GROUP,
@@ -59,45 +53,33 @@ const SUMMARY_COLUMNS: Column[] = [
     readOnly: true,
   },
   {
-    key: "Tổng chi phí Gross Pay",
-    label: "Gross Pay",
-    group: PAYMENT_GROUP,
-    groupHeaderClassName: PAYMENT_GROUP_STYLE,
-    type: "money",
-    width: 148,
-    align: "right",
+    key: "Tháng HOLD",
+    label: "Tháng phát sinh HOLD",
+    group: CONTEXT_GROUP,
+    groupHeaderClassName: CONTEXT_GROUP_STYLE,
+    type: "text",
+    width: 126,
+    align: "center",
+    cellClassName: "font-bold text-slate-700",
     readOnly: true,
-    showGrandTotal: true,
   },
   {
-    key: "Thanh toán lương",
-    label: "Thanh toán lương",
-    group: PAYMENT_GROUP,
-    groupHeaderClassName: PAYMENT_GROUP_STYLE,
-    type: "money",
-    width: 148,
-    align: "right",
+    key: "Kỳ báo cáo",
+    label: "Kỳ đang theo dõi",
+    group: CONTEXT_GROUP,
+    groupHeaderClassName: CONTEXT_GROUP_STYLE,
+    type: "text",
+    width: 116,
+    align: "center",
     readOnly: true,
-    showGrandTotal: true,
   },
   {
-    key: "Số dư giữ lại đầu kỳ",
-    label: "Số dư HOLD đầu kỳ",
-    group: PAYMENT_GROUP,
-    groupHeaderClassName: PAYMENT_GROUP_STYLE,
+    key: "HOLD phát sinh",
+    label: "Tổng HOLD phát sinh",
+    group: ORIGIN_GROUP,
+    groupHeaderClassName: ORIGIN_GROUP_STYLE,
     type: "money",
-    width: 148,
-    align: "right",
-    readOnly: true,
-    showGrandTotal: true,
-  },
-  {
-    key: "HOLD",
-    label: "HOLD",
-    group: ADJUSTMENT_GROUP,
-    groupHeaderClassName: ADJUSTMENT_GROUP_STYLE,
-    type: "money",
-    width: 112,
+    width: 144,
     align: "right",
     headerClassName: "!bg-[#FFF5DA] !text-[#8A5A00]",
     cellClassName: "font-bold text-[#8A5A00] bg-[#FFFBEE]",
@@ -105,25 +87,47 @@ const SUMMARY_COLUMNS: Column[] = [
     showGrandTotal: true,
   },
   {
-    key: "ADD",
-    label: "ADD",
-    group: ADJUSTMENT_GROUP,
-    groupHeaderClassName: ADJUSTMENT_GROUP_STYLE,
+    key: "Số dư HOLD đầu kỳ",
+    label: "Số dư trước kỳ báo cáo",
+    group: ORIGIN_GROUP,
+    groupHeaderClassName: ORIGIN_GROUP_STYLE,
     type: "money",
-    width: 112,
+    width: 154,
     align: "right",
-    headerClassName: "!bg-[#EAF7FB] !text-[#176B87]",
-    cellClassName: "font-bold text-[#176B87] bg-[#F2FAFC]",
     readOnly: true,
     showGrandTotal: true,
   },
   {
-    key: "CANCEL",
-    label: "CANCEL",
-    group: ADJUSTMENT_GROUP,
-    groupHeaderClassName: ADJUSTMENT_GROUP_STYLE,
+    key: "Thanh toán HOLD tại kỳ",
+    label: "Thanh toán HOLD",
+    group: MOVEMENT_GROUP,
+    groupHeaderClassName: MOVEMENT_GROUP_STYLE,
     type: "money",
-    width: 112,
+    width: 146,
+    align: "right",
+    headerClassName: "!bg-[#EAF7FB] !text-[#176B87]",
+    cellClassName: "font-extrabold text-[#176B87] bg-[#F2FAFC]",
+    readOnly: true,
+    showGrandTotal: true,
+  },
+  {
+    key: "Tháng thanh toán tại kỳ",
+    label: "Thanh toán vào tháng",
+    group: MOVEMENT_GROUP,
+    groupHeaderClassName: MOVEMENT_GROUP_STYLE,
+    type: "text",
+    width: 132,
+    align: "center",
+    cellClassName: "font-bold text-[#176B87]",
+    readOnly: true,
+  },
+  {
+    key: "CANCEL tại kỳ",
+    label: "CANCEL",
+    group: MOVEMENT_GROUP,
+    groupHeaderClassName: MOVEMENT_GROUP_STYLE,
+    type: "money",
+    width: 118,
     align: "right",
     headerClassName: "!bg-[#FDECEF] !text-[#A51E36]",
     cellClassName: "font-bold text-[#A51E36] bg-[#FFF5F6]",
@@ -131,10 +135,10 @@ const SUMMARY_COLUMNS: Column[] = [
     showGrandTotal: true,
   },
   {
-    key: "BONUS",
+    key: "BONUS tại kỳ",
     label: "BONUS",
-    group: ADJUSTMENT_GROUP,
-    groupHeaderClassName: ADJUSTMENT_GROUP_STYLE,
+    group: MOVEMENT_GROUP,
+    groupHeaderClassName: MOVEMENT_GROUP_STYLE,
     type: "money",
     width: 112,
     align: "right",
@@ -144,41 +148,53 @@ const SUMMARY_COLUMNS: Column[] = [
     showGrandTotal: true,
   },
   {
-    key: "Số dư giữ lại cuối kỳ",
-    label: "Số dư HOLD cuối kỳ",
-    group: BALANCE_GROUP,
-    groupHeaderClassName: BALANCE_GROUP_STYLE,
-    type: "money",
-    width: 154,
-    align: "right",
+    key: "Các tháng đã thanh toán",
+    label: "Các tháng từng thanh toán HOLD",
+    group: HISTORY_GROUP,
+    groupHeaderClassName: HISTORY_GROUP_STYLE,
+    type: "text",
+    width: 188,
+    align: "left",
+    cellClassName: "font-semibold text-[#176B87]",
     readOnly: true,
-    showGrandTotal: true,
-    cellClassName: "font-extrabold text-[#A51E36] bg-[#FFF7F8]",
   },
   {
-    key: "Tổng tiền thanh toán",
-    label: "Tổng tiền thanh toán",
-    group: BALANCE_GROUP,
-    groupHeaderClassName: BALANCE_GROUP_STYLE,
+    key: "Số dư HOLD còn lại",
+    label: "Số dư HOLD còn lại",
+    group: RESULT_GROUP,
+    groupHeaderClassName: RESULT_GROUP_STYLE,
     type: "money",
-    width: 168,
+    width: 154,
     align: "right",
     readOnly: true,
     showGrandTotal: true,
     cellClassName: "font-extrabold text-[#16734A] bg-[#F3FAF6]",
   },
   {
-    key: "Chênh lệch đối soát Gross Pay",
-    label: "Chênh lệch Gross Pay",
-    group: BALANCE_GROUP,
-    groupHeaderClassName: BALANCE_GROUP_STYLE,
-    type: "money",
-    width: 148,
-    align: "right",
+    key: "Diễn biến tại kỳ",
+    label: "Diễn biến kỳ báo cáo",
+    group: RESULT_GROUP,
+    groupHeaderClassName: RESULT_GROUP_STYLE,
+    type: "text",
+    width: 166,
+    align: "left",
     readOnly: true,
-    showGrandTotal: true,
+  },
+  {
+    key: "Trạng thái HOLD",
+    label: "Trạng thái HOLD",
+    group: RESULT_GROUP,
+    groupHeaderClassName: RESULT_GROUP_STYLE,
+    type: "text",
+    width: 146,
+    align: "left",
+    cellClassName: "font-bold text-slate-700",
+    readOnly: true,
   },
 ];
+
+const formatAmount = (value: number) =>
+  Math.round(value).toLocaleString("vi-VN");
 
 export function BulkPaymentAnalytics({
   analytics,
@@ -193,29 +209,66 @@ export function BulkPaymentAnalytics({
       ? selectedBusiness
       : allBusinessUnitsValue;
 
-  const filteredRows = useMemo(
-    () => {
-      const rows =
-        effectiveSelectedBusiness === allBusinessUnitsValue
+  const filteredRows = useMemo(() => {
+    const rows =
+      effectiveSelectedBusiness === allBusinessUnitsValue
         ? analytics.summaryRows
         : analytics.summaryRows.filter(
             (row) => row.BU === effectiveSelectedBusiness,
           );
 
-      return rows.map((row, index) => ({
-        ...row,
-        "No.": index + 1,
-      }));
-    },
-    [
-      allBusinessUnitsValue,
-      analytics.summaryRows,
-      effectiveSelectedBusiness,
-    ],
+    return rows.map((row, index) => ({
+      ...row,
+      "No.": index + 1,
+    }));
+  }, [
+    allBusinessUnitsValue,
+    analytics.summaryRows,
+    effectiveSelectedBusiness,
+  ]);
+
+  const periodSummary = useMemo(
+    () =>
+      filteredRows.reduce(
+        (summary, row) => {
+          summary.paid += Number(row["Thanh toán HOLD tại kỳ"] || 0);
+          summary.cancel += Number(row["CANCEL tại kỳ"] || 0);
+          summary.remaining += Number(row["Số dư HOLD còn lại"] || 0);
+          if (Number(row["Thanh toán HOLD tại kỳ"] || 0) > 0) {
+            summary.paidOccurrenceMonths.add(String(row["Tháng HOLD"] || ""));
+          }
+          return summary;
+        },
+        {
+          paid: 0,
+          cancel: 0,
+          remaining: 0,
+          paidOccurrenceMonths: new Set<string>(),
+        },
+      ),
+    [filteredRows],
   );
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-slate-300 bg-white">
+      <div className="flex min-h-[48px] shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-primary/[0.035] px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm">
+            <History className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">
+              ANALYSIS · Theo dõi vòng đời HOLD
+            </h2>
+            <p className="mt-0.5 text-[9px] font-semibold text-slate-500">
+              Kỳ {analytics.currentPeriod}: thanh toán {formatAmount(periodSummary.paid)} cho HOLD của {periodSummary.paidOccurrenceMonths.size} tháng phát sinh · CANCEL {formatAmount(periodSummary.cancel)} · còn dư {formatAmount(periodSummary.remaining)}
+            </p>
+          </div>
+        </div>
+        <span className="hidden shrink-0 text-[8px] font-bold uppercase tracking-wider text-slate-400 xl:block">
+          Mỗi dòng = 1 BU + 1 tháng phát sinh HOLD
+        </span>
+      </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         <DataTable
           key={`${analytics.currentPeriod}|${effectiveSelectedBusiness}`}
@@ -224,7 +277,7 @@ export function BulkPaymentAnalytics({
           isEditable={false}
           externalSearchTerm={searchTerm}
           onExternalSearchChange={onSearchTermChange}
-          storageKey="analys_bulkpayment_summary_v7"
+          storageKey="analys_hold_lifecycle_v8"
           showFooter={true}
           showPagination={true}
           defaultItemsPerPage={50}
