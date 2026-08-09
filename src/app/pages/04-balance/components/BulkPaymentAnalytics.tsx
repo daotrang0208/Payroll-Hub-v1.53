@@ -345,7 +345,7 @@ export function BulkPaymentAnalytics({
           </div>
         </div>
 
-        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5">
           {searchVisible && (
             <div className="relative hidden w-[clamp(150px,18vw,240px)] min-w-0 sm:block">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -371,18 +371,12 @@ export function BulkPaymentAnalytics({
             </div>
           )}
 
-          <label
-            htmlFor="analys-business-filter"
-            className="hidden text-[7px] font-extrabold uppercase tracking-[0.12em] text-slate-500 sm:block"
-          >
-            BU
-          </label>
           <div className="relative">
             <select
               id="analys-business-filter"
               value={effectiveSelectedBusiness}
               onChange={(event) => onSelectedBusinessChange(event.target.value)}
-              className="h-7 w-[98px] appearance-none rounded-full border border-primary/25 bg-white pl-3 pr-7 text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary sm:w-[106px]"
+              className="h-[27px] w-[112px] appearance-none rounded-full border border-primary/25 bg-white pl-3 pr-7 text-[12px] font-extrabold uppercase leading-none text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary"
               title="Chọn BU theo dõi trên bảng ANALYS"
             >
               <option value={allBusinessUnitsValue}>Tất cả BU</option>
@@ -392,7 +386,7 @@ export function BulkPaymentAnalytics({
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
           </div>
 
           <DropdownMenu>
@@ -451,7 +445,7 @@ export function BulkPaymentAnalytics({
           isEditable={false}
           externalSearchTerm={searchTerm}
           onExternalSearchChange={onSearchTermChange}
-          storageKey="analys_hold_lifecycle_v8"
+          storageKey="analys_hold_lifecycle_v9"
           showFooter={true}
           showPagination={true}
           defaultItemsPerPage={50}
