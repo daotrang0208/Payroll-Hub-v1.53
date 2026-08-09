@@ -2972,9 +2972,9 @@ export function BulkPayment({
         <div
           className="px-3 border-b border-slate-200/80 flex flex-row items-center justify-between w-full gap-3 shrink-0 select-none box-border"
           style={{
-            height: rightPanelTab === "visuals" ? "52px" : "73px",
-            minHeight: rightPanelTab === "visuals" ? "52px" : "73px",
-            maxHeight: rightPanelTab === "visuals" ? "52px" : "73px",
+            height: rightPanelTab === "visuals" ? "46px" : "73px",
+            minHeight: rightPanelTab === "visuals" ? "46px" : "73px",
+            maxHeight: rightPanelTab === "visuals" ? "46px" : "73px",
             backgroundColor:
               "color-mix(in srgb, var(--primary) 5%, var(--card, #fff))",
           }}
@@ -3114,46 +3114,9 @@ export function BulkPayment({
             )}
 
             {displayBankExportData.length > 0 &&
-              rightPanelTab === "visuals" && (
-                <div className="ml-1 flex h-8 min-w-0 flex-1 items-center gap-1.5 border-l border-slate-300 pl-2.5">
-                  <div className="hidden shrink-0 flex-col gap-0.5 2xl:flex">
-                    <span className="text-[7px] font-bold uppercase tracking-widest text-slate-500">
-                      Tháng báo cáo
-                    </span>
-                    <span className="font-mono text-[10px] font-black text-[#781D1D]">
-                      {analysAnalytics?.currentPeriod}
-                    </span>
-                  </div>
-
-                  <label
-                    htmlFor="analys-business-filter"
-                    className="hidden whitespace-nowrap text-[7px] font-extrabold uppercase tracking-wider text-slate-500 xl:block"
-                  >
-                    BU theo dõi
-                  </label>
-                  <div className="relative min-w-0 shrink-0">
-                    <select
-                      id="analys-business-filter"
-                      value={effectiveAnalysBusiness}
-                      onChange={(event) =>
-                        setAnalysSelectedBusiness(event.target.value)
-                      }
-                      className="h-7 w-[clamp(112px,11vw,152px)] appearance-none rounded-full border border-primary/20 bg-white pl-3 pr-7 text-[9px] font-bold uppercase text-slate-700 outline-none transition-colors hover:border-primary/40 focus:border-primary"
-                      title="Chọn BU theo dõi trên bảng ANALYS"
-                    >
-                      <option value={ALL_ANALYS_BUSINESS_UNITS}>
-                        Tất cả BU
-                      </option>
-                      {analysBusinessUnits.map((business) => (
-                        <option key={business} value={business}>
-                          {business}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
-                  </div>
-
-                  {analysSearchVisible && (
+              rightPanelTab === "visuals" &&
+              analysSearchVisible && (
+                <div className="ml-1 flex h-7 min-w-0 flex-1 items-center border-l border-slate-300 pl-2.5">
                   <div className="relative min-w-[150px] max-w-[240px] flex-1">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     <input
@@ -3178,7 +3141,6 @@ export function BulkPayment({
                       <X className="h-3 w-3" />
                     </button>
                   </div>
-                  )}
                 </div>
               )}
           </div>
@@ -3956,6 +3918,7 @@ export function BulkPayment({
                       allBusinessUnitsValue={ALL_ANALYS_BUSINESS_UNITS}
                       searchTerm={analysSearchTerm}
                       onSearchTermChange={setAnalysSearchTerm}
+                      onSelectedBusinessChange={setAnalysSelectedBusiness}
                     />
                   )}
                 </motion.div>

@@ -2805,7 +2805,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
           <div
             ref={scrollContainerRef}
             tabIndex={0}
-            className={`flex-1 overflow-y-auto overflow-x-auto custom-scrollbar outline-none bg-transparent relative min-h-0 transition-opacity duration-100 mb-0 w-full max-w-full ${isStale ? "opacity-60" : "opacity-100"}`}
+            className={`table-body-region flex-1 overflow-y-auto overflow-x-auto custom-scrollbar outline-none bg-transparent relative min-h-0 transition-opacity duration-100 mb-0 w-full max-w-full ${isStale ? "opacity-60" : "opacity-100"}`}
             onFocus={() => !activeCell && setActiveCellWithSource({ r: 0, c: 0 }, "keyboard")}
             onMouseMove={handleTableMouseMove}
             style={{ 

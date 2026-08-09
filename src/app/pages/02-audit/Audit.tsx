@@ -1306,18 +1306,20 @@ export function Audit() {
               )}
 
               {/* Source A Component */}
-              <div className="flex flex-col gap-2 shrink-0 w-full">
-                <span className="text-[0.65rem] font-extrabold uppercase tracking-widest flex items-center gap-2 text-slate-500 px-1 whitespace-nowrap">
-                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="whitespace-normal break-words">MR.03 - Teacher Timesheet</span>
+              <div className="audit-source-card flex w-full shrink-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-2xs">
+                <span className="flex min-h-7 items-center gap-2 border-b border-slate-200 bg-primary/[0.035] px-2.5 py-1 text-[0.62rem] font-extrabold uppercase tracking-widest text-slate-600">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <FileText className="h-3 w-3" />
+                  </span>
+                  <span className="whitespace-normal break-words">MR.03 - Teacher Timesheet</span>
                 </span>
                 <label
                   htmlFor="upload-file-a-audit"
-                  className={`flex flex-col justify-center p-3 border-2 border-dashed rounded-none cursor-pointer transition-all duration-300 relative group w-full min-h-[84px] ${
-                    fileNameA 
-                      ? "bg-emerald-50/30 border-emerald-400/60 shadow-inner hover:bg-emerald-50/50" 
-                      : "bg-slate-50/60 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10"
+                  className={`relative flex min-h-[68px] w-full cursor-pointer flex-col justify-center p-2.5 transition-all duration-300 group ${
+                    fileNameA
+                      ? "bg-emerald-50/45 hover:bg-emerald-50/70"
+                      : "bg-white hover:bg-primary/[0.025]"
                   }`}
-                  style={{ width: "100%", borderRadius: "0px" }}
                 >
                   <input
                     type="file"
@@ -1327,8 +1329,8 @@ export function Audit() {
                     onChange={onFileAChange}
                   />
                   {!fileNameA ? (
-                    <div className="text-center py-2 flex flex-col items-center gap-1" style={{ width: "100%" }}>
-                      <PlusCircle className="w-7 h-7 text-slate-400 group-hover:text-primary group-hover:scale-110 transition-transform duration-300" />
+                    <div className="flex w-full flex-col items-center gap-1 py-1 text-center">
+                      <PlusCircle className="h-6 w-6 text-slate-400 transition-transform duration-300 group-hover:scale-105 group-hover:text-primary" />
                       <span className="text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-widest block mt-1">
                         Tải File GV
                       </span>
@@ -1358,18 +1360,20 @@ export function Audit() {
               </div>
 
               {/* Source Config Component */}
-              <div className="flex flex-col gap-2 shrink-0 w-full">
-                <span className="text-[0.65rem] font-extrabold uppercase tracking-widest flex items-center gap-2 px-1 text-slate-500 whitespace-nowrap">
-                  <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="whitespace-normal break-words">MR.07 - Class hour</span>
+              <div className="audit-source-card flex w-full shrink-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-2xs">
+                <span className="flex min-h-7 items-center gap-2 border-b border-slate-200 bg-primary/[0.035] px-2.5 py-1 text-[0.62rem] font-extrabold uppercase tracking-widest text-slate-600">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <BadgeCheck className="h-3 w-3" />
+                  </span>
+                  <span className="whitespace-normal break-words">MR.07 - Class hour</span>
                 </span>
                 <label
                   htmlFor="upload-file-config-audit"
-                  className={`flex flex-col justify-center p-3 border-2 border-dashed rounded-none cursor-pointer transition-all duration-300 relative group w-full min-h-[84px] ${
-                    fileNameConfig 
-                      ? "bg-emerald-50/30 border-emerald-400/60 shadow-inner hover:bg-emerald-50/50" 
-                      : "bg-slate-50/60 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10"
+                  className={`relative flex min-h-[68px] w-full cursor-pointer flex-col justify-center p-2.5 transition-all duration-300 group ${
+                    fileNameConfig
+                      ? "bg-emerald-50/45 hover:bg-emerald-50/70"
+                      : "bg-white hover:bg-primary/[0.025]"
                   }`}
-                  style={{ width: "100%", borderRadius: "0px" }}
                 >
                   <input
                     type="file"
@@ -1379,8 +1383,8 @@ export function Audit() {
                     onChange={onFileConfigChange}
                   />
                   {!fileNameConfig ? (
-                    <div className="text-center py-2 flex flex-col items-center gap-1">
-                      <PlusCircle className="w-7 h-7 text-slate-400 group-hover:text-primary group-hover:scale-110 transition-transform duration-300" />
+                    <div className="flex flex-col items-center gap-1 py-1 text-center">
+                      <PlusCircle className="h-6 w-6 text-slate-400 transition-transform duration-300 group-hover:scale-105 group-hover:text-primary" />
                       <span className="text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-widest block mt-1">
                         Tải File Sĩ Số
                       </span>
@@ -1410,21 +1414,23 @@ export function Audit() {
               </div>
 
               {/* Source B Component */}
-              <div className="flex flex-col gap-2 shrink-0 w-full">
-                <span className="text-[0.65rem] font-extrabold uppercase tracking-widest flex items-center gap-2 text-slate-500 px-1 whitespace-nowrap">
-                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="whitespace-normal break-words">Dữ liệu Lớp Học (B)</span>
+              <div className="audit-source-card flex w-full shrink-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-2xs">
+                <span className="flex min-h-7 items-center gap-2 border-b border-slate-200 bg-primary/[0.035] px-2.5 py-1 text-[0.62rem] font-extrabold uppercase tracking-widest text-slate-600">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Users className="h-3 w-3" />
+                  </span>
+                  <span className="whitespace-normal break-words">Dữ liệu Lớp Học (B)</span>
                 </span>
                 <div
-                  className={`flex flex-col justify-center p-3 border-2 border-dashed rounded-none transition-all duration-300 relative group w-full min-h-[84px] ${
-                    rosterData?.length > 0 
-                      ? "bg-emerald-50/30 border-emerald-400/60 shadow-inner" 
-                      : "bg-slate-50/60 border-slate-200"
+                  className={`relative flex min-h-[68px] w-full flex-col justify-center p-2.5 transition-all duration-300 group ${
+                    rosterData?.length > 0
+                      ? "bg-emerald-50/45"
+                      : "bg-white"
                   }`}
-                  style={{ width: "100%", borderRadius: "0px" }}
                 >
                   {!rosterData?.length ? (
-                    <div className="text-center py-2 flex flex-col items-center gap-1" style={{ width: "100%" }}>
-                      <Users className="w-7 h-7 text-slate-400 animate-pulse-subtle" />
+                    <div className="flex w-full flex-col items-center gap-1 py-1 text-center">
+                      <Users className="h-6 w-6 text-slate-400 animate-pulse-subtle" />
                       <span className="text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-widest block mt-1">
                         Chưa có Roster
                       </span>
@@ -1456,25 +1462,20 @@ export function Audit() {
 
             {/* Common Date Range Display */}
             {(teacherDateRange || taDateRange || configDateRange) && (
-              <div 
-                className="mt-auto pt-4 border-t border-slate-100 shrink-0 w-full"
-                style={{ paddingTop: "0px", borderWidth: "0px" }}
-              >
-                <div 
-                  className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-none flex items-center gap-3 w-full"
-                  style={{ borderColor: "#d1d1d1", backgroundColor: "#d3d3d3", borderRadius: "0px" }}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-                    <Calendar className="w-5 h-5" />
-                  </div>
+              <div className="audit-source-card mt-auto flex w-full shrink-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-2xs">
+                <div className="flex min-h-7 items-center gap-2 border-b border-slate-200 bg-primary/[0.035] px-2.5 py-1">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Calendar className="h-3 w-3" />
+                  </span>
+                  <h4 className="text-[0.6rem] font-extrabold uppercase tracking-wider text-slate-600">
+                    Thời gian chung (A, B & MR.07)
+                  </h4>
+                </div>
+                <div className="flex min-h-[44px] items-center px-2.5 py-2">
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none mb-1"
-                      style={{ fontWeight: "normal", fontSize: "9.4px" }}
-                    >
-                      Thời gian chung (A, B & MR.07)
-                    </h4>
-                    <p className="text-[12px] leading-tight font-black text-primary uppercase whitespace-normal break-words"
-                      style={{ fontSize: "11px", fontWeight: "bold" }}
+                    <p
+                      className="whitespace-normal break-words text-[11px] font-black uppercase leading-snug text-primary"
+                      title={commonDateRange || (isProcessing ? "Đang tính toán..." : "Chưa đủ dữ liệu")}
                     >
                       {commonDateRange || (isProcessing ? "Đang tính toán..." : "Chưa đủ dữ liệu")}
                     </p>
@@ -1613,6 +1614,7 @@ export function Audit() {
           </div>
         </div>
 
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-0">
           {auditResults?.isCalculating || isProcessing ? (
             <div className="flex-1 flex flex-col items-center justify-center bg-white/50 relative z-10 w-full h-full p-6">
               <div className="relative">
@@ -1669,6 +1671,7 @@ export function Audit() {
               striped={false}
             />
           )}
+          </div>
         </div>
       </div>
     </motion.div>

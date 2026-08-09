@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { History } from "lucide-react";
+import { ChevronDown, LayoutGrid } from "lucide-react";
 import { DataTable, type Column } from "../../../components/DataTable";
 import { type BulkPaymentAnalyticsResult } from "../../../lib/utils/bulk-payment-analytics";
 
@@ -9,6 +9,7 @@ interface BulkPaymentAnalyticsProps {
   allBusinessUnitsValue: string;
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
+  onSelectedBusinessChange: (value: string) => void;
 }
 
 const CONTEXT_GROUP = "Thông tin kỳ theo dõi";
@@ -202,6 +203,7 @@ export function BulkPaymentAnalytics({
   allBusinessUnitsValue,
   searchTerm,
   onSearchTermChange,
+  onSelectedBusinessChange,
 }: BulkPaymentAnalyticsProps) {
   const effectiveSelectedBusiness =
     selectedBusiness === allBusinessUnitsValue ||
@@ -250,24 +252,50 @@ export function BulkPaymentAnalytics({
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-slate-300 bg-white">
-      <div className="flex min-h-[48px] shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-primary/[0.035] px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm">
-            <History className="h-4 w-4" />
+    <div className="unified-table-frame flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+      <div className="unified-table-frame-header flex h-[46px] min-h-[46px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] px-3 py-1">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm">
+            <LayoutGrid className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">
-              ANALYSIS · Theo dõi vòng đời HOLD
+            <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-primary">
+              ANALYS
             </h2>
-            <p className="mt-0.5 text-[9px] font-semibold text-slate-500">
+            <p
+              className="mt-0.5 max-w-[min(66vw,760px)] truncate text-[8.5px] font-semibold text-slate-500"
+              title={`Kỳ ${analytics.currentPeriod}: thanh toán ${formatAmount(periodSummary.paid)} cho HOLD của ${periodSummary.paidOccurrenceMonths.size} tháng phát sinh · CANCEL ${formatAmount(periodSummary.cancel)} · còn dư ${formatAmount(periodSummary.remaining)}`}
+            >
               Kỳ {analytics.currentPeriod}: thanh toán {formatAmount(periodSummary.paid)} cho HOLD của {periodSummary.paidOccurrenceMonths.size} tháng phát sinh · CANCEL {formatAmount(periodSummary.cancel)} · còn dư {formatAmount(periodSummary.remaining)}
             </p>
           </div>
         </div>
-        <span className="hidden shrink-0 text-[8px] font-bold uppercase tracking-wider text-slate-400 xl:block">
-          Mỗi dòng = 1 BU + 1 tháng phát sinh HOLD
-        </span>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <label
+            htmlFor="analys-business-filter"
+            className="hidden text-[7px] font-extrabold uppercase tracking-[0.12em] text-slate-500 sm:block"
+          >
+            BU
+          </label>
+          <div className="relative">
+            <select
+              id="analys-business-filter"
+              value={effectiveSelectedBusiness}
+              onChange={(event) => onSelectedBusinessChange(event.target.value)}
+              className="h-7 w-[104px] appearance-none rounded-full border border-primary/25 bg-white pl-3 pr-7 text-[9px] font-extrabold uppercase text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary sm:w-[112px]"
+              title="Chọn BU theo dõi trên bảng ANALYS"
+            >
+              <option value={allBusinessUnitsValue}>Tất cả BU</option>
+              {analytics.businessUnits.map((business) => (
+                <option key={business} value={business}>
+                  {business}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
+          </div>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         <DataTable

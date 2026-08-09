@@ -180,6 +180,14 @@ const isSameMonthForSumIf = (rowMonthRaw?: string, workMonthRaw?: string): boole
   return directClean(rowMonthRaw) === directClean(workMonthRaw);
 };
 
+const isExactReportPeriod = (
+  row: Pick<BuRow, "reportMonth" | "month">,
+  period: string,
+) => {
+  const reportMonth = String(row.reportMonth || row.month || "").trim();
+  return reportMonth.length > 0 && isSameMonthForSumIf(reportMonth, period);
+};
+
 const isPastMonthHold = (row: any, currentMonthNum: number, currentYearNum: number): boolean => {
   if (!row) return false;
 
@@ -1630,7 +1638,13 @@ export function HoldAddDashboard() {
       }
     });
 
-    processedResult = finalRows;
+    // CANCEL is a movement of one report period, not a carried balance item.
+    // Snapshots from older periods may still be needed for HOLD opening balances,
+    // but their CANCEL rows must never reappear in the next sidebar period.
+    processedResult = finalRows.filter((row) => {
+      const isCancel = String(row.id).toLowerCase().includes("_cancel");
+      return !isCancel || isExactReportPeriod(row, currentPeriod);
+    });
 
     return processedResult.sort((a, b) => {
       const mA = a.reportMonth === currentPeriod ? 99999999 : getMonthNum(a.month);
@@ -1962,10 +1976,9 @@ export function HoldAddDashboard() {
       });
 
       // Only sum rows that belong to this period month
-      const rowsThisMonth = rows.filter(r => {
-        const rowMonth = r.reportMonth === mk ? mk : (r.displayMonth || r.month);
-        return rowMonth === mk;
-      });
+      const rowsThisMonth = rows.filter((row) =>
+        isExactReportPeriod(row, mk),
+      );
 
       const psThu = rowsThisMonth
         .filter(
@@ -2022,6 +2035,7 @@ export function HoldAddDashboard() {
       const holdAmt = rowsThisMonth
         .reduce((s, e) => s + Math.abs(e.hold), 0);
       const cancelAmt = rowsThisMonth
+        .filter((row) => isExactReportPeriod(row, mk))
         .reduce((s, e) => s + Math.abs(e.cancel), 0);
       const bonusAmt = rowsThisMonth
         .reduce((s, e) => s + Math.abs(isNaN(e.bonus) ? 0 : e.bonus), 0);
@@ -2142,15 +2156,9 @@ export function HoldAddDashboard() {
 
   const isCurrentPeriodRow = useCallback(
     (row: any) => {
-      const candidates = [
-        row?.reportMonth,
-        row?.month,
-        row?.displayMonth,
-        row?.customMonthDisplay,
-      ];
-      return candidates.some(
-        (candidate) =>
-          normalizeMonthLabel(String(candidate || "")) === currentPeriod,
+      const reportMonth = row?.reportMonth || row?.month;
+      return (
+        normalizeMonthLabel(String(reportMonth || "")) === currentPeriod
       );
     },
     [currentPeriod, normalizeMonthLabel],
@@ -2255,10 +2263,10 @@ export function HoldAddDashboard() {
   }, [data]);
 
   return (
-    <div className="h-full flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent w-full" style={{ borderRadius: "0px" }}>
+    <div className="unified-table-frame h-full flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent w-full" style={{ borderRadius: "0px" }}>
       {/* Toolbar */}
       <div 
-        className="flex-shrink-0 bg-transparent px-0 py-0 border-b border-[#e7dbdc] flex items-center justify-between"
+        className="unified-table-frame-header flex-shrink-0 bg-transparent px-0 py-0 flex items-center justify-between"
         style={{ height: "62.9735px", minHeight: "62.9735px", paddingTop: "0px", paddingBottom: "0px", paddingLeft: "0px", paddingRight: "0px", borderRadius: "0px" }}
       >
         <div className="w-full flex items-center justify-between flex-wrap gap-3 py-2 px-4 h-full" style={{ borderRadius: "0px" }}>
@@ -2404,7 +2412,7 @@ export function HoldAddDashboard() {
       </div>
       <div className="flex-1 flex flex-col min-h-0 bg-transparent relative">
         <div 
-          className="flex-1 min-h-0 overflow-auto custom-scrollbar border-0 shadow-none" 
+          className="table-body-region flex-1 min-h-0 overflow-auto custom-scrollbar border-0 shadow-none"
           style={{ borderRadius: "0px" }}
         >
           <table
@@ -2552,7 +2560,7 @@ export function HoldAddDashboard() {
                     // Month row
                     <tr
                       key={`m-${mk}`}
-                      className="cursor-pointer group transition-colors"
+                      className="trial-month-total-row cursor-pointer group transition-colors"
                       onClick={() => toggle(mk)}
                     >
                       <td className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-3 text-center text-slate-800 dark:text-slate-200 font-bold !bg-[#FAF9F6]/80 dark:!bg-slate-800/60 whitespace-nowrap text-[13px]">
@@ -2580,7 +2588,7 @@ export function HoldAddDashboard() {
                       <td className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-3 text-right text-slate-800 dark:text-slate-200 font-bold font-mono text-xs !bg-[#FAF9F6]/80 dark:!bg-slate-800/60 whitespace-nowrap">
                         {psChi !== 0 ? fmt(psChi) : "0"}
                       </td>
-                      <td className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-3 text-right text-slate-800 dark:text-slate-200 font-bold font-mono text-xs !bg-[#FAF9F6]/80 dark:!bg-slate-800/60 whitespace-nowrap">
+                      <td className="trial-month-close-balance border-r border-b border-[#e7dbdc] dark:border-slate-800 p-3 text-right text-slate-800 dark:text-slate-200 font-bold font-mono text-xs !bg-[#FAF9F6]/80 dark:!bg-slate-800/60 whitespace-nowrap">
                         {fmt(closeBal)}
                       </td>
                       <td className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-3 text-right text-slate-800 dark:text-slate-200 font-bold font-mono text-xs !bg-amber-100/60 dark:!bg-amber-900/40 whitespace-nowrap">
@@ -2640,9 +2648,12 @@ export function HoldAddDashboard() {
                               }
                               const displayedThu = e.thu;
                               const displayedChi = Math.abs(e.chi);
+                              const displayedCancel = isExactReportPeriod(e, mk)
+                                ? e.cancel || 0
+                                : 0;
                               const rClose = rowRCloseBalances[e.id] ?? 0;
                               const isDefaultApproved = e.lenh === "OK" || e.isPaidStatus;
-                              const hasTamTinh = (e.add || 0) !== 0 || (e.hold || 0) !== 0 || (e.cancel || 0) !== 0 || (e.bonus || 0) !== 0 || (e.rawAdd || 0) !== 0 || (e.rawHold || 0) !== 0 || (e.rawCancel || 0) !== 0 || (e.rawBonus || 0) !== 0;
+                              const hasTamTinh = (e.add || 0) !== 0 || (e.hold || 0) !== 0 || displayedCancel !== 0 || (e.bonus || 0) !== 0 || (e.rawAdd || 0) !== 0 || (e.rawHold || 0) !== 0 || (isExactReportPeriod(e, mk) && (e.rawCancel || 0) !== 0) || (e.rawBonus || 0) !== 0;
                               const isConf =
                                 isPeriodSaved(e.month) ||
                                 isPeriodSaved(currentPeriod) ||
@@ -2656,7 +2667,7 @@ export function HoldAddDashboard() {
                               sumChi += isRowDimmed ? 0 : displayedChi;
                               sumAdd += isRowDimmed ? 0 : (e.add || 0);
                               sumHold += isRowDimmed ? 0 : (e.hold || 0);
-                              sumCancel += isRowDimmed ? 0 : (e.cancel || 0);
+                              sumCancel += isRowDimmed ? 0 : displayedCancel;
 
                               return (
                                 <tr
@@ -2748,9 +2759,9 @@ export function HoldAddDashboard() {
                                     )}
                                   </td>
                                   <td className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-2 text-right font-mono text-xs whitespace-nowrap min-w-[80px] bg-amber-50/60 dark:bg-amber-950/25">
-                                    {e.cancel !== 0 ? (
+                                    {displayedCancel !== 0 ? (
                                       <span className="text-slate-500 dark:text-slate-400 font-medium">
-                                        {fmt(e.cancel)}
+                                        {fmt(displayedCancel)}
                                       </span>
                                     ) : (
                                       "0"
@@ -2938,7 +2949,7 @@ export function HoldAddDashboard() {
 
         {/* Caption & Footer Pagination Controls */}
         <div 
-          className="flex-shrink-0 border-t border-[var(--table-grid-color,#e7dbdc)] py-2 px-4 bg-[#FDFBF7] dark:bg-slate-900 flex items-center justify-between gap-3 text-xs w-full"
+          className="table-footer-pagination flex-shrink-0 py-2 px-4 bg-[#FDFBF7] dark:bg-slate-900 flex items-center justify-between gap-3 text-xs w-full"
           style={{ height: "50.9848px", minHeight: "50.9848px" }}
         >
           <div className="flex items-center gap-2">
