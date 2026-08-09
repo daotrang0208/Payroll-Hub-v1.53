@@ -318,7 +318,7 @@ export function BulkPaymentAnalytics({
                   className="flex h-5 items-center gap-2 text-[12px] font-black uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary/80"
                   title="Chuyển bảng"
                 >
-                  <span>ANALYS</span>
+                  <span>ANALYSIS</span>
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
               </DropdownMenuTrigger>
@@ -376,8 +376,8 @@ export function BulkPaymentAnalytics({
               id="analys-business-filter"
               value={effectiveSelectedBusiness}
               onChange={(event) => onSelectedBusinessChange(event.target.value)}
-              className="h-[27px] w-[112px] appearance-none rounded-full border border-primary/25 bg-white pl-3 pr-7 text-[12px] font-extrabold uppercase leading-none text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary"
-              title="Chọn BU theo dõi trên bảng ANALYS"
+              className="h-[27px] w-[116px] appearance-none rounded-full border border-primary/25 bg-white pl-2.5 pr-6 text-[10px] font-extrabold uppercase leading-none text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary"
+              title="Chọn BU trên bảng ANALYSIS"
             >
               <option value={allBusinessUnitsValue}>Tất cả BU</option>
               {analytics.businessUnits.map((business) => (

@@ -1172,6 +1172,11 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > main:nth-of-
   border: 1px solid #e2e8f0 !important;
 }
 
+/* Remove nested table-body spacing in every Bulk Payment card state. */
+.table-container > div.min-h-0 > div.border > div.min-h-0 {
+  padding: 0 !important;
+}
+
 /* Custom Rule 2: Dashboard Page Isolation to prevent overflow & scrolling issues */
 #dashboard-container {
   width: 100% !important;

@@ -1917,10 +1917,10 @@ export function BulkPayment({
       style={{
         borderWidth: "0px",
         gap: showLeftCard ? "8px" : "0px",
-        paddingBottom: showLeftCard ? "12px" : "0px",
-        paddingTop: showLeftCard ? "12px" : "0px",
-        paddingLeft: showLeftCard ? "24px" : "0px",
-        paddingRight: showLeftCard ? "20px" : "0px",
+        paddingBottom: "0px",
+        paddingTop: "0px",
+        paddingLeft: "0px",
+        paddingRight: "0px",
       }}
     >
       {/* Left Panel - Actions & Info (Unified Scrollable Card) */}
