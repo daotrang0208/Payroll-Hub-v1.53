@@ -42,15 +42,15 @@ const HISTORY_GROUP = "Lịch sử thanh toán";
 const RESULT_GROUP = "Kết quả đến cuối kỳ";
 
 const CONTEXT_GROUP_STYLE =
-  "!bg-[#EEE9EC] !text-[#61575C] border-slate-300 tracking-[0.12em]";
+  "!bg-primary/[0.04] !text-primary border-primary/15 tracking-[0.12em]";
 const ORIGIN_GROUP_STYLE =
-  "!bg-[#FFF5DA] !text-[#8A5A00] border-slate-300 tracking-[0.12em]";
+  "!bg-primary/[0.07] !text-primary border-primary/20 tracking-[0.12em]";
 const MOVEMENT_GROUP_STYLE =
-  "!bg-[#F1E6E7] !text-[#781D1D] border-slate-300 tracking-[0.12em]";
+  "!bg-primary/[0.10] !text-primary border-primary/25 tracking-[0.12em]";
 const HISTORY_GROUP_STYLE =
-  "!bg-[#EAF7FB] !text-[#176B87] border-slate-300 tracking-[0.12em]";
+  "!bg-primary/[0.06] !text-primary border-primary/20 tracking-[0.12em]";
 const RESULT_GROUP_STYLE =
-  "!bg-[#EAF5EF] !text-[#16734A] border-slate-300 tracking-[0.12em]";
+  "!bg-primary/[0.12] !text-primary border-primary/30 tracking-[0.12em]";
 
 const SUMMARY_COLUMNS: Column[] = [
   {
@@ -109,8 +109,8 @@ const SUMMARY_COLUMNS: Column[] = [
     type: "money",
     width: 144,
     align: "right",
-    headerClassName: "!bg-[#FFF5DA] !text-[#8A5A00]",
-    cellClassName: "font-bold text-[#8A5A00] bg-[#FFFBEE]",
+    headerClassName: "!bg-primary/[0.07] !text-primary",
+    cellClassName: "font-bold text-primary bg-primary/[0.025]",
     readOnly: true,
     showGrandTotal: true,
   },
@@ -133,8 +133,8 @@ const SUMMARY_COLUMNS: Column[] = [
     type: "money",
     width: 146,
     align: "right",
-    headerClassName: "!bg-[#EAF7FB] !text-[#176B87]",
-    cellClassName: "font-extrabold text-[#176B87] bg-[#F2FAFC]",
+    headerClassName: "!bg-primary/[0.08] !text-primary",
+    cellClassName: "font-extrabold text-primary bg-primary/[0.035]",
     readOnly: true,
     showGrandTotal: true,
   },
@@ -146,7 +146,7 @@ const SUMMARY_COLUMNS: Column[] = [
     type: "text",
     width: 132,
     align: "center",
-    cellClassName: "font-bold text-[#176B87]",
+    cellClassName: "font-bold text-primary",
     readOnly: true,
   },
   {
@@ -157,8 +157,8 @@ const SUMMARY_COLUMNS: Column[] = [
     type: "money",
     width: 118,
     align: "right",
-    headerClassName: "!bg-[#FDECEF] !text-[#A51E36]",
-    cellClassName: "font-bold text-[#A51E36] bg-[#FFF5F6]",
+    headerClassName: "!bg-primary/[0.09] !text-primary",
+    cellClassName: "font-bold text-primary bg-primary/[0.04]",
     readOnly: true,
     showGrandTotal: true,
   },
@@ -170,8 +170,8 @@ const SUMMARY_COLUMNS: Column[] = [
     type: "money",
     width: 112,
     align: "right",
-    headerClassName: "!bg-[#F2EEF5] !text-[#694D72]",
-    cellClassName: "font-bold text-[#694D72] bg-[#FAF7FB]",
+    headerClassName: "!bg-primary/[0.08] !text-primary",
+    cellClassName: "font-bold text-primary bg-primary/[0.03]",
     readOnly: true,
     showGrandTotal: true,
   },
@@ -183,7 +183,7 @@ const SUMMARY_COLUMNS: Column[] = [
     type: "text",
     width: 188,
     align: "left",
-    cellClassName: "font-semibold text-[#176B87]",
+    cellClassName: "font-semibold text-primary",
     readOnly: true,
   },
   {
@@ -196,7 +196,7 @@ const SUMMARY_COLUMNS: Column[] = [
     align: "right",
     readOnly: true,
     showGrandTotal: true,
-    cellClassName: "font-extrabold text-[#16734A] bg-[#F3FAF6]",
+    cellClassName: "font-extrabold text-primary bg-primary/[0.05]",
   },
   {
     key: "Diễn biến tại kỳ",
@@ -285,7 +285,7 @@ export function BulkPaymentAnalytics({
   );
 
   return (
-    <div className="unified-table-frame flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+    <div className="analysis-table-frame unified-table-frame flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--card)] text-[var(--card-foreground)]">
       <div className="unified-table-frame-header flex h-[54px] min-h-[54px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] px-3 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <button
@@ -353,7 +353,7 @@ export function BulkPaymentAnalytics({
                 autoFocus
                 value={searchTerm}
                 onChange={(event) => onSearchTermChange(event.target.value)}
-                className="h-7 w-full rounded-full border border-primary/20 bg-white pl-8 pr-8 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-primary/40 focus:border-primary"
+                className="h-7 w-full rounded-full border border-primary/20 bg-[var(--card)] pl-8 pr-8 text-[9px] font-semibold text-[var(--card-foreground)] outline-none placeholder:text-[var(--muted-foreground)] hover:border-primary/40 focus:border-primary"
                 placeholder="Tìm BU hoặc tháng…"
                 aria-label="Tìm kiếm trong bảng ANALYSIS"
               />
@@ -376,7 +376,7 @@ export function BulkPaymentAnalytics({
               id="analys-business-filter"
               value={effectiveSelectedBusiness}
               onChange={(event) => onSelectedBusinessChange(event.target.value)}
-              className="h-[27px] w-[116px] appearance-none rounded-full border border-primary/25 bg-white pl-2.5 pr-6 text-[10px] font-extrabold uppercase leading-none text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary"
+              className="h-[27px] w-[116px] appearance-none rounded-full border border-primary/25 bg-[var(--card)] pl-2.5 pr-6 text-[10px] font-extrabold uppercase leading-none text-[var(--card-foreground)] outline-none transition-colors hover:border-primary/45 focus:border-primary"
               title="Chọn BU trên bảng ANALYSIS"
             >
               <option value={allBusinessUnitsValue}>Tất cả BU</option>
@@ -393,7 +393,7 @@ export function BulkPaymentAnalytics({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-slate-600 shadow-2xs transition-colors hover:border-primary/40 hover:bg-primary/[0.05] hover:text-primary"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-[var(--card)] text-[var(--card-foreground)] shadow-2xs transition-colors hover:border-primary/40 hover:bg-primary/[0.05] hover:text-primary"
                 title="Cài đặt bảng ANALYSIS"
               >
                 <Settings className="h-3.5 w-3.5" />
@@ -437,7 +437,7 @@ export function BulkPaymentAnalytics({
           </DropdownMenu>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="analysis-table-region min-h-0 flex-1 overflow-hidden bg-[var(--card)]">
         <DataTable
           key={`${analytics.currentPeriod}|${effectiveSelectedBusiness}`}
           columns={SUMMARY_COLUMNS}
@@ -446,6 +446,7 @@ export function BulkPaymentAnalytics({
           externalSearchTerm={searchTerm}
           onExternalSearchChange={onSearchTermChange}
           storageKey="analys_hold_lifecycle_v9"
+          className="analysis-data-table"
           showFooter={true}
           showPagination={true}
           defaultItemsPerPage={50}
@@ -453,10 +454,12 @@ export function BulkPaymentAnalytics({
           stickyHeader={true}
           stickyFirstColumn={false}
           striped={false}
+          scrollContainerStyle={{ backgroundColor: "var(--card)" }}
+          tableStyle={{ backgroundColor: "var(--card)" }}
           ignoreSavedHiddenColumns={true}
           ignoreSavedPagination={true}
-          headerClassName="bg-[#FAF9F6] text-slate-800 border-slate-300 font-bold text-[9px] uppercase tracking-[0.08em] text-center"
-          footerClassName="bg-[#ECE5E8] text-slate-800 border-t border-slate-400 font-extrabold text-[10px]"
+          headerClassName="bg-primary/[0.055] text-primary border-primary/20 font-bold text-[9px] uppercase tracking-[0.08em] text-center"
+          footerClassName="bg-primary/[0.085] text-primary border-t border-primary/25 font-extrabold text-[10px]"
         />
       </div>
     </div>

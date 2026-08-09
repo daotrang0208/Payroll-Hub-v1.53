@@ -1175,12 +1175,117 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > main:nth-of-
 /* Remove nested table-body spacing in every Bulk Payment card state. */
 .table-container > div.min-h-0 > div.border > div.min-h-0 {
   box-sizing: border-box !important;
-  width: 1140.25px !important;
-  height: 425.312px !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
   padding-top: 0 !important;
   padding-right: 0 !important;
   padding-bottom: 0 !important;
   padding-left: 0 !important;
+}
+
+/* ANALYSIS uses one continuous, theme-aware surface from title to pagination. */
+.analysis-table-frame {
+  --analysis-surface: var(--card, #ffffff);
+  --analysis-soft-surface: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 5%,
+    var(--card, #ffffff)
+  );
+  height: 100% !important;
+  min-height: 0 !important;
+  background: var(--analysis-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 22%,
+    var(--border, #e2e8f0)
+  ) !important;
+}
+
+.analysis-table-frame > .unified-table-frame-header {
+  background: var(--analysis-soft-surface) !important;
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 20%,
+    var(--border, #e2e8f0)
+  ) !important;
+}
+
+.analysis-table-region,
+.analysis-data-table,
+.analysis-data-table > .table-body-region {
+  min-height: 0 !important;
+  background: var(--analysis-surface) !important;
+}
+
+.analysis-table-region,
+.analysis-data-table {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.analysis-data-table > .table-body-region {
+  flex: 1 1 auto !important;
+}
+
+.analysis-data-table table,
+.analysis-data-table tbody,
+.analysis-data-table tbody tr,
+.analysis-data-table tbody td {
+  background-color: var(--analysis-surface) !important;
+}
+
+.analysis-data-table tbody td {
+  color: var(--card-foreground, #334155) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 12%,
+    var(--border, #e2e8f0)
+  ) !important;
+}
+
+.analysis-data-table thead th,
+.analysis-data-table tfoot td,
+.analysis-data-table .total-row,
+.analysis-data-table .total-row td {
+  background: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 7%,
+    var(--card, #ffffff)
+  ) !important;
+  color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 72%,
+    var(--card-foreground, #334155)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 22%,
+    var(--border, #e2e8f0)
+  ) !important;
+}
+
+.analysis-data-table > .table-footer-pagination {
+  background: var(--analysis-soft-surface) !important;
+  color: var(--card-foreground, #334155) !important;
+  border-top-color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 20%,
+    var(--border, #e2e8f0)
+  ) !important;
+}
+
+.analysis-data-table > .table-footer-pagination :where(button, [role="combobox"]) {
+  background: var(--analysis-surface) !important;
+  color: var(--card-foreground, #334155) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--primary, #0ea5e9) 20%,
+    var(--border, #e2e8f0)
+  ) !important;
 }
 
 /* Custom Rule 2: Dashboard Page Isolation to prevent overflow & scrolling issues */
