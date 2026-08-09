@@ -57,11 +57,11 @@ export interface PayrollBuMonthSummaryRow {
   BU: string;
   "Tổng chi phí Gross Pay": number;
   "Thanh toán lương": number;
-  "Giữ lại phát sinh": number;
   "Số dư giữ lại đầu kỳ": number;
-  "Thanh toán HOLD": number;
-  "CANCEL HOLD": number;
-  "BONUS": number;
+  HOLD: number;
+  ADD: number;
+  CANCEL: number;
+  BONUS: number;
   "Số dư giữ lại cuối kỳ": number;
   "Tổng tiền thanh toán": number;
   "Chênh lệch đối soát Gross Pay": number;
@@ -877,10 +877,10 @@ export function buildBulkPaymentAnalytics({
       BU: row.BU,
       "Tổng chi phí Gross Pay": 0,
       "Thanh toán lương": 0,
-      "Giữ lại phát sinh": 0,
       "Số dư giữ lại đầu kỳ": 0,
-      "Thanh toán HOLD": 0,
-      "CANCEL HOLD": 0,
+      HOLD: 0,
+      ADD: 0,
+      CANCEL: 0,
       BONUS: 0,
       "Số dư giữ lại cuối kỳ": 0,
       "Tổng tiền thanh toán": 0,
@@ -890,17 +890,17 @@ export function buildBulkPaymentAnalytics({
     existing["Tổng chi phí Gross Pay"] +=
       row["Lương phải trả kỳ báo cáo"];
     existing["Thanh toán lương"] += row["Đã trả lương kỳ báo cáo"];
-    existing["Giữ lại phát sinh"] += row["Giữ lại phát sinh trong kỳ"];
     existing["Số dư giữ lại đầu kỳ"] += row["Giữ lại chuyển sang"];
-    existing["Thanh toán HOLD"] += row["ADD trong kỳ"];
-    existing["CANCEL HOLD"] += row["CANCEL trong kỳ"];
+    existing.HOLD += row["Giữ lại phát sinh trong kỳ"];
+    existing.ADD += row["ADD trong kỳ"];
+    existing.CANCEL += row["CANCEL trong kỳ"];
     existing.BONUS += row["BONUS trong kỳ"];
     existing["Số dư giữ lại cuối kỳ"] += row["Còn số dư"];
     existing["Tổng tiền thanh toán"] += row["Tổng thực trả trong kỳ"];
     existing["Chênh lệch đối soát Gross Pay"] =
       existing["Tổng chi phí Gross Pay"] -
       existing["Thanh toán lương"] -
-      existing["Giữ lại phát sinh"];
+      existing.HOLD;
     summaryMap.set(key, existing);
   });
 

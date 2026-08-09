@@ -83,6 +83,7 @@ import {
 } from "../../components/ui/tooltip";
 import { DataTable } from "../../components/DataTable";
 import { BulkPaymentAnalytics } from "./components/BulkPaymentAnalytics";
+import { buildBulkPaymentAnalytics } from "../../lib/utils/bulk-payment-analytics";
 import { motion, AnimatePresence } from "motion/react";
 import {
   DropdownMenu,
@@ -115,6 +116,8 @@ const itemVariants = {
     },
   },
 } as const;
+
+const ALL_ANALYS_BUSINESS_UNITS = "__ALL_BUSINESS_UNITS__";
 
 const isIdColumnKey = (k: string): boolean => {
   if (!k) return false;
@@ -228,6 +231,9 @@ export function BulkPayment({
       ? saved
       : "table";
   });
+  const [analysSelectedBusiness, setAnalysSelectedBusiness] = useState(
+    ALL_ANALYS_BUSINESS_UNITS,
+  );
 
   useEffect(() => {
     const handleSetRightTab = (e: any) => {
@@ -531,6 +537,38 @@ export function BulkPayment({
     () => bankExportData || [],
     [bankExportData],
   );
+
+  const analysAnalytics = useMemo(() => {
+    if (rightPanelTab !== "visuals" || displayBankExportData.length === 0) {
+      return null;
+    }
+
+    return buildBulkPaymentAnalytics({
+      sheet1Rows: appData.Sheet1_AE?.data || [],
+      holdRows: appData.Hold_AE?.data || [],
+      bankRows:
+        appData.BankExport?.data?.length > 0
+          ? appData.BankExport.data
+          : appData.Bank_North_AE?.data || [],
+      globalMonth: appData.globalMonth || "03.2026",
+    });
+  }, [
+    appData.BankExport?.data,
+    appData.Bank_North_AE?.data,
+    appData.Hold_AE?.data,
+    appData.Sheet1_AE?.data,
+    appData.globalMonth,
+    displayBankExportData.length,
+    rightPanelTab,
+  ]);
+
+  const analysBusinessUnits = analysAnalytics?.businessUnits || [];
+
+  const effectiveAnalysBusiness =
+    analysSelectedBusiness === ALL_ANALYS_BUSINESS_UNITS ||
+    analysBusinessUnits.includes(analysSelectedBusiness)
+      ? analysSelectedBusiness
+      : ALL_ANALYS_BUSINESS_UNITS;
 
   const bankExportTotal = useMemo(() => {
     return (appData.BankExport?.data || []).reduce((sum: number, r: any) => {
@@ -2927,7 +2965,8 @@ export function BulkPayment({
             height: "73px",
             minHeight: "73px",
             maxHeight: "73px",
-            backgroundColor: "#F5F4F5",
+            backgroundColor:
+              rightPanelTab === "visuals" ? "#FAF9F6" : "#F5F4F5",
           }}
         >
           <div className="flex items-center gap-3 shrink-0">
@@ -3048,15 +3087,64 @@ export function BulkPayment({
                 </div>
               </div>
             )}
+
+            {displayBankExportData.length > 0 &&
+              rightPanelTab === "visuals" && (
+                <div className="flex min-w-0 items-center gap-3 border-l border-slate-300 pl-4 ml-2">
+                <div className="hidden xl:flex items-center gap-1.5 whitespace-nowrap">
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">
+                    Tháng báo cáo
+                  </span>
+                  <span className="font-mono text-[11px] font-black text-[#781D1D]">
+                    {analysAnalytics?.currentPeriod}
+                  </span>
+                </div>
+                <label
+                  htmlFor="analys-business-filter"
+                  className="whitespace-nowrap text-[9px] font-extrabold uppercase tracking-wider text-slate-600"
+                >
+                  BU theo dõi
+                </label>
+                <div className="relative min-w-0">
+                  <select
+                    id="analys-business-filter"
+                    value={effectiveAnalysBusiness}
+                    onChange={(event) =>
+                      setAnalysSelectedBusiness(event.target.value)
+                    }
+                    className="h-8 w-[180px] max-w-[32vw] appearance-none border border-slate-300 bg-white pl-3 pr-8 text-[10px] font-bold text-slate-700 outline-none transition-colors hover:border-slate-400 focus:border-[#781D1D]"
+                    title="Chọn BU theo dõi trên bảng ANALYS"
+                  >
+                    <option value={ALL_ANALYS_BUSINESS_UNITS}>
+                      Tất cả BU
+                    </option>
+                    {analysBusinessUnits.map((business) => (
+                      <option key={business} value={business}>
+                        {business}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                </div>
+                </div>
+              )}
           </div>
 
           <div className="flex items-center gap-2 ml-auto shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs shrink-0"
+                  className={`rounded-full border border-slate-200 text-slate-700 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs shrink-0 ${
+                    rightPanelTab === "visuals"
+                      ? "bg-[#FAF9F6] hover:bg-[#F2EFE9]"
+                      : "bg-white hover:bg-slate-50"
+                  }`}
                   style={{ width: "33.1913px", height: "33.1913px", minWidth: "33.1913px", minHeight: "33.1913px" }}
-                  title="Cài đặt & Thao tác"
+                  title={
+                    rightPanelTab === "visuals"
+                      ? "Cài đặt bảng ANALYS"
+                      : "Cài đặt & Thao tác"
+                  }
                 >
                   <Settings className="w-4 h-4 text-slate-600" />
                 </button>
@@ -3774,16 +3862,13 @@ export function BulkPayment({
                   transition={{ duration: 0.1 }}
                   className="flex-1 min-h-0 overflow-hidden"
                 >
-                  <BulkPaymentAnalytics
-                    sheet1Rows={appData.Sheet1_AE?.data || []}
-                    holdRows={appData.Hold_AE?.data || []}
-                    bankRows={
-                      appData.BankExport?.data?.length > 0
-                        ? appData.BankExport.data
-                        : appData.Bank_North_AE?.data || []
-                    }
-                    globalMonth={appData.globalMonth || "03.2026"}
-                  />
+                  {analysAnalytics && (
+                    <BulkPaymentAnalytics
+                      analytics={analysAnalytics}
+                      selectedBusiness={effectiveAnalysBusiness}
+                      allBusinessUnitsValue={ALL_ANALYS_BUSINESS_UNITS}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
