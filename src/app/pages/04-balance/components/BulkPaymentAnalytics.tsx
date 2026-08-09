@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
-  Activity,
   ChevronDown,
+  LayoutDashboard,
   RefreshCw,
   Search,
   Settings,
@@ -30,6 +30,8 @@ interface BulkPaymentAnalyticsProps {
   searchVisible: boolean;
   onSearchVisibleChange: (visible: boolean) => void;
   onResetFilters: () => void;
+  isBulkPaymentCardVisible: boolean;
+  onToggleBulkPaymentCard: () => void;
   onViewChange: (view: "table" | "reconcile") => void;
 }
 
@@ -84,6 +86,8 @@ const SUMMARY_COLUMNS: Column[] = [
     align: "center",
     cellClassName: "font-bold text-slate-700",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
   {
     key: "Kỳ báo cáo",
@@ -94,6 +98,8 @@ const SUMMARY_COLUMNS: Column[] = [
     width: 116,
     align: "center",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
   {
     key: "HOLD phát sinh",
@@ -228,6 +234,8 @@ export function BulkPaymentAnalytics({
   searchVisible,
   onSearchVisibleChange,
   onResetFilters,
+  isBulkPaymentCardVisible,
+  onToggleBulkPaymentCard,
   onViewChange,
 }: BulkPaymentAnalyticsProps) {
   const effectiveSelectedBusiness =
@@ -280,13 +288,54 @@ export function BulkPaymentAnalytics({
     <div className="unified-table-frame flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
       <div className="unified-table-frame-header flex h-[54px] min-h-[54px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] px-3 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm">
-            <Activity className="h-4 w-4" />
-          </div>
+          <button
+            type="button"
+            onClick={onToggleBulkPaymentCard}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-2xs transition-all active:scale-95 ${
+              isBulkPaymentCardVisible
+                ? "border-primary/20 bg-white text-primary hover:bg-primary/[0.05]"
+                : "border-primary bg-primary text-white hover:brightness-95"
+            }`}
+            title={
+              isBulkPaymentCardVisible
+                ? "Ẩn card Bulk Payment"
+                : "Hiện card Bulk Payment"
+            }
+            aria-label={
+              isBulkPaymentCardVisible
+                ? "Ẩn card Bulk Payment"
+                : "Hiện card Bulk Payment"
+            }
+            aria-pressed={isBulkPaymentCardVisible}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+          </button>
           <div className="min-w-0">
-            <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-primary">
-              ANALYSIS
-            </h2>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-5 items-center gap-2 text-[12px] font-black uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary/80"
+                  title="Chuyển bảng"
+                >
+                  <span>ANALYS</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuLabel className="px-2 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  Chuyển bảng
+                </DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onViewChange("table")}>
+                  <Table2 className="h-4 w-4 shrink-0 text-slate-600" />
+                  <span>Transaction</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onViewChange("reconcile")}>
+                  <Scale className="h-4 w-4 shrink-0 text-sky-600" />
+                  <span>Đối soát</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <p
               className="mt-0.5 max-w-[min(46vw,620px)] truncate text-[8.5px] font-semibold text-slate-500"
               title={`Theo dõi vòng đời HOLD · Kỳ ${analytics.currentPeriod} · ${filteredRows.length} dòng · Số dư ${formatAmount(periodSummary.remaining)}`}
@@ -333,7 +382,7 @@ export function BulkPaymentAnalytics({
               id="analys-business-filter"
               value={effectiveSelectedBusiness}
               onChange={(event) => onSelectedBusinessChange(event.target.value)}
-              className="h-7 w-[104px] appearance-none rounded-full border border-primary/25 bg-white pl-3 pr-7 text-[9px] font-extrabold uppercase text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary sm:w-[112px]"
+              className="h-7 w-[98px] appearance-none rounded-full border border-primary/25 bg-white pl-3 pr-7 text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-700 outline-none transition-colors hover:border-primary/45 focus:border-primary sm:w-[106px]"
               title="Chọn BU theo dõi trên bảng ANALYS"
             >
               <option value={allBusinessUnitsValue}>Tất cả BU</option>

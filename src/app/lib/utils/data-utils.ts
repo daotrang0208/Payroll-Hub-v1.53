@@ -105,6 +105,8 @@ export function isNonSummableTextColumn(columnKey: string): boolean {
   return (
     normalized.includes("THANG BAO CAO") ||
     normalized.includes("THANG PHAT SINH") ||
+    normalized.includes("KY BAO CAO") ||
+    normalized.includes("KY DANG THEO DOI") ||
     normalized.includes("REPORTING MONTH") ||
     normalized.includes("ARISING MONTH") ||
     normalized.includes("SALARY SCALE")

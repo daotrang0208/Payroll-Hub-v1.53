@@ -3177,6 +3177,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                     {(() => {
                       const colIsNumericList = visibleColumns.map((col) => {
                         const effectiveType = columnTypes[col.key] || col.type;
+                        if (col.showGrandTotal === false) return false;
                         if (isProtectedNumericColumn(col.key)) return false;
                         let colIsNumeric =
                           isChargeAmountColumn(col.key) ||
@@ -3216,6 +3217,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
 
                       return visibleColumns.map((col: any, cIdx: number) => {
                         const colIsNumeric =
+                          col.showGrandTotal !== false &&
                           !isProtectedNumericColumn(col.key) &&
                           (colIsNumericList[cIdx] ||
                             (col as any).showGrandTotal);

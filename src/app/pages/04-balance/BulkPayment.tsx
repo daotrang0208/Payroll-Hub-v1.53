@@ -1916,10 +1916,11 @@ export function BulkPayment({
       className="flex-1 w-full min-h-0 flex flex-row gap-2 bg-transparent overflow-hidden p-0 relative"
       style={{
         borderWidth: "0px",
-        paddingBottom: "12px",
-        paddingTop: "12px",
-        paddingLeft: "24px",
-        paddingRight: "20px",
+        gap: showLeftCard ? "8px" : "0px",
+        paddingBottom: showLeftCard ? "12px" : "0px",
+        paddingTop: showLeftCard ? "12px" : "0px",
+        paddingLeft: showLeftCard ? "24px" : "0px",
+        paddingRight: showLeftCard ? "20px" : "0px",
       }}
     >
       {/* Left Panel - Actions & Info (Unified Scrollable Card) */}
@@ -3929,6 +3930,10 @@ export function BulkPayment({
                         );
                         setAnalysSearchTerm("");
                       }}
+                      isBulkPaymentCardVisible={showLeftCard}
+                      onToggleBulkPaymentCard={() =>
+                        setShowLeftCard((visible) => !visible)
+                      }
                       onViewChange={(view) => {
                         setRightPanelTab(view);
                         localStorage.setItem("bulk_payment_right_tab", view);
