@@ -141,8 +141,71 @@ export function parseAnyDate(dateStr: string): Date | null {
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? null : d;
 }
-export function getVal(row: any, key: string): any {
-  return row ? row[key] : null;
+const normalizedRowKeyCache = new WeakMap<object, Map<string, string>>();
+
+function normalizeLookupKey(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Read the first matching value from an imported row.
+ *
+ * Excel/Google Sheet headers are user-controlled, so callers can provide a
+ * list of aliases. Matching is accent/case/spacing insensitive and the
+ * normalized key map is cached per row to avoid repeatedly scanning every
+ * header while processing large workbooks.
+ */
+export function getVal(
+  row: any,
+  keyOrAliases: string | readonly string[],
+): any {
+  if (!row || typeof row !== "object") return null;
+
+  const aliases = Array.isArray(keyOrAliases)
+    ? keyOrAliases
+    : [keyOrAliases];
+  let firstDefinedValue: any = null;
+
+  for (const alias of aliases) {
+    if (Object.prototype.hasOwnProperty.call(row, alias)) {
+      const value = row[alias];
+      if (value !== undefined && value !== null && value !== "") return value;
+      if (firstDefinedValue === null && value !== undefined) {
+        firstDefinedValue = value;
+      }
+    }
+  }
+
+  let normalizedKeys = normalizedRowKeyCache.get(row);
+  if (!normalizedKeys) {
+    normalizedKeys = new Map<string, string>();
+    Object.keys(row).forEach((rowKey) => {
+      const normalized = normalizeLookupKey(rowKey);
+      if (normalized && !normalizedKeys!.has(normalized)) {
+        normalizedKeys!.set(normalized, rowKey);
+      }
+    });
+    normalizedRowKeyCache.set(row, normalizedKeys);
+  }
+
+  for (const alias of aliases) {
+    const actualKey = normalizedKeys.get(normalizeLookupKey(alias));
+    if (!actualKey) continue;
+    const value = row[actualKey];
+    if (value !== undefined && value !== null && value !== "") return value;
+    if (firstDefinedValue === null && value !== undefined) {
+      firstDefinedValue = value;
+    }
+  }
+
+  return firstDefinedValue;
 }
 export function parseTimeStrToHours(timeStr: string): number {
   if (!timeStr) return 0;

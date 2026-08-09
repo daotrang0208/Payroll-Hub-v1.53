@@ -808,6 +808,32 @@ button.rounded-full,
   border-radius: 9999px !important;
 }
 
+/* Icon-only controls are always true circles, independent from saved radius. */
+:where(button, [role="button"]):has(> svg:only-child),
+div:has(> svg:only-child) {
+  border-radius: 9999px !important;
+}
+
+/* Shared native dropdown treatment; transparent title selectors opt out. */
+select:not([multiple]):not(.title-select-plain) {
+  border-radius: 12px;
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+  background-color: var(--card, #fff);
+  box-shadow: 0 8px 24px -20px color-mix(in srgb, var(--primary) 45%, transparent);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+select:not([multiple]):not(.title-select-plain):hover,
+select:not([multiple]):not(.title-select-plain):focus {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.payroll-theme-card {
+  background-color: color-mix(in srgb, var(--primary) 6%, var(--card, #fff)) !important;
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--border)) !important;
+}
+
 /* 4. Remove background and borders from specific toolbars */
 .flex.bg-slate-200\/30,
 div.flex.bg-slate-200\/30,
@@ -1523,6 +1549,4 @@ div.audit-data-table-wrapper {
   min-width: 0 !important;
   margin: 0 !important;
 }
-
-
 

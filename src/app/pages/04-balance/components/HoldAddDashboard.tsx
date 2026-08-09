@@ -11,6 +11,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Trash2,
+  Scale,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { toast } from "sonner";
@@ -2263,10 +2264,11 @@ export function HoldAddDashboard() {
         <div className="w-full flex items-center justify-between flex-wrap gap-3 py-2 px-4 h-full" style={{ borderRadius: "0px" }}>
           {/* Summary Pills on Top Header Bar (Replacing Payroll Hub title & icon) */}
           <div className="flex items-center gap-2 flex-wrap" style={{ borderRadius: "0px", minHeight: "38px" }}>
-            <span className="text-[12px] font-black tracking-widest uppercase text-[#600032] dark:text-rose-300 font-sans mr-1">
+            <span className="text-[12px] font-black tracking-widest uppercase text-[#600032] dark:text-rose-300 font-sans mr-1 inline-flex items-center gap-1.5">
+              <Scale className="w-4 h-4 text-primary shrink-0" />
               TRIAL BALANCE
             </span>
-            <span className="text-[11px] bg-white border border-[#e7dbdc]/80 rounded-full px-3 py-0.5 text-foreground flex items-center gap-1.5 shadow-2xs">
+            <span className="text-[11px] bg-transparent border-0 rounded-none px-1.5 py-0.5 text-foreground flex items-center gap-1.5 shadow-none">
               <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px] font-sans">
                 CHI PHÍ LƯƠNG TA
               </span>
@@ -2276,24 +2278,22 @@ export function HoldAddDashboard() {
               >
                 {fmt(chiPhiLuongTaPillValue)}
               </span>
-              <span className="text-slate-400 font-bold font-sans text-[10px]">?</span>
             </span>
-            <span className="text-[11px] bg-white border border-[#e7dbdc]/80 rounded-full px-3 py-0.5 text-foreground flex items-center gap-1.5 shadow-2xs">
+            <span className="text-[11px] bg-transparent border-0 rounded-none px-1.5 py-0.5 text-foreground flex items-center gap-1.5 shadow-none">
               <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px] font-sans">HOLD</span>
               <span className="font-sans font-bold text-rose-600 text-[11px]">
                 {fmt(holdPillValue)}
               </span>
             </span>
-            <span className="text-[11px] bg-white border border-[#e7dbdc]/80 rounded-full px-3 py-0.5 text-foreground flex items-center gap-1.5 shadow-2xs">
+            <span className="text-[11px] bg-transparent border-0 rounded-none px-1.5 py-0.5 text-foreground flex items-center gap-1.5 shadow-none">
               <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px] font-sans">Add</span>
               <span
                 className="font-sans font-bold text-[#68182e] text-[11px]"
               >
                 {fmt(grandAddPillValue)}
               </span>
-              <span className="text-slate-400 font-bold font-sans text-[10px]">?</span>
             </span>
-            <span className="text-[11px] bg-white border border-[#e7dbdc]/80 rounded-full px-3 py-0.5 text-foreground flex items-center gap-1.5 shadow-2xs">
+            <span className="text-[11px] bg-transparent border-0 rounded-none px-1.5 py-0.5 text-foreground flex items-center gap-1.5 shadow-none">
               <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px] font-sans">Cancel</span>
               <span
                 className="font-sans font-bold text-[#e65100] text-[11px]"
@@ -2772,7 +2772,7 @@ export function HoldAddDashboard() {
                                       if (!isInteractive) {
                                         return (
                                           <span className="text-slate-400 dark:text-slate-500 font-medium">
-                                            —
+                                            0
                                           </span>
                                         );
                                       }
@@ -2780,7 +2780,7 @@ export function HoldAddDashboard() {
                                       if (e.lenh === "-" && !hasTamTinh) {
                                         return (
                                           <span className="text-slate-400 dark:text-slate-500 font-medium">
-                                            —
+                                            0
                                           </span>
                                         );
                                       }

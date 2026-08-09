@@ -549,7 +549,7 @@ const DataRow = React.memo(
     inputRef,
     rowHeight,
     setRowHeight,
-    striped,
+    striped: _striped,
     onRowClick,
     borderClass,
     stickyFirstColumn,
@@ -584,7 +584,7 @@ const DataRow = React.memo(
     return (
       <tr
         onClick={() => onRowClick?.(row)}
-        className={`group ${selectable || onRowClick ? "cursor-pointer" : "cursor-default"} ${row._dimmed ? "opacity-35" : ""} ${row._isTotalRow ? "bg-indigo-50/80 font-black border-t-2 border-indigo-200" : String(row.overlap_check || "").startsWith("Trùng lịch") ? "bg-rose-100/70 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100" : String(row.overlap_check || "").startsWith("Trùng dòng") ? "bg-amber-100/70 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" : isSelected ? "bg-primary/[0.05]" : isRowInRange ? "bg-primary/[0.015]" : striped ? (rIdx % 2 === 0 ? "bg-[var(--stripe-color1,white)]" : "bg-[var(--stripe-color2,white)]") : "bg-white"} relative`}
+        className={`group ${selectable || onRowClick ? "cursor-pointer" : "cursor-default"} ${row._dimmed ? "opacity-35" : ""} ${row._isTotalRow ? "bg-primary/[0.06] font-black border-t-2 border-primary/20" : String(row.overlap_check || "").startsWith("Trùng lịch") ? "bg-rose-100/70 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100" : String(row.overlap_check || "").startsWith("Trùng dòng") ? "bg-amber-100/70 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" : isSelected ? "bg-primary/[0.05]" : isRowInRange ? "bg-primary/[0.015]" : "bg-[var(--card,#fff)]"} relative`}
         style={{ height: rowHeight ? `${rowHeight}px` : undefined }}
       >
         {selectable && (
@@ -849,7 +849,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
       autoHideZeroSumColumns = false,
       stickyHeader = true,
       borderless = false,
-      stickyFirstColumn = false,
+      stickyFirstColumn: _requestedStickyFirstColumn = false,
       scrollContainerStyle,
       tableStyle,
       ignoreSavedHiddenColumns = false,
@@ -860,6 +860,9 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     },
     ref,
   ) => {
+    // Horizontal scrolling is authoritative: no data/select/row-number column
+    // is pinned, even if an older saved component still requests it.
+    const stickyFirstColumn = false;
     const [operationStatus, setOperationStatus] = useState<string | null>(null);
     const statusTimeoutRef = useRef<NodeJS.Timeout>();
 

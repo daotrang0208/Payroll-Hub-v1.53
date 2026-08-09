@@ -398,7 +398,7 @@ const DataRow = React.memo(
     inputRef,
     rowHeight,
     setRowHeight,
-    striped,
+    striped: _striped,
     onRowClick,
   }: any) => {
     const rowId = row.id || rIdx;
@@ -431,7 +431,7 @@ const DataRow = React.memo(
     return (
       <tr
         onClick={() => onRowClick?.(row)}
-        className={`group ${selectable || onRowClick ? "cursor-pointer" : "cursor-default"} ${row._dimmed ? "opacity-35" : ""} ${isSelected ? "bg-primary/[0.05]" : isRowInRange ? "bg-primary/[0.015]" : striped ? (rIdx % 2 === 0 ? "bg-[var(--stripe-color1,white)]" : "bg-[var(--stripe-color2,white)]") : "bg-white"} relative`}
+        className={`group ${selectable || onRowClick ? "cursor-pointer" : "cursor-default"} ${row._dimmed ? "opacity-35" : ""} ${isSelected ? "bg-primary/[0.05]" : isRowInRange ? "bg-primary/[0.015]" : "bg-[var(--card,#fff)]"} relative`}
         style={{ height: rowHeight ? `${rowHeight}px` : undefined }}
       >
         {isSelected && (

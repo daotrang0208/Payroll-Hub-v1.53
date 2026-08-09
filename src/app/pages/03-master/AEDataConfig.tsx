@@ -2634,7 +2634,7 @@ export function AEDataConfig({
       className="flex-1 flex flex-col min-h-0 bg-transparent p-4 sm:p-6 md:p-8 items-center overflow-hidden w-full max-w-full"
     >
       {/* Main Content Card */}
-      <div className="bg-card text-card-foreground soft-card force-light flex-1 flex flex-col min-h-0 w-full max-w-full relative overflow-hidden rounded-2xl shadow-sm border border-border/60">
+      <div className="unified-table-frame bg-card text-card-foreground soft-card force-light flex-1 flex flex-col min-h-0 w-full max-w-full relative overflow-hidden rounded-none shadow-sm border border-border">
         <div className="absolute inset-0 striped-pattern opacity-[0.05] pointer-events-none" />
 
         {/* Integrated Header & Controls */}

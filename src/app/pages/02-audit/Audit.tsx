@@ -1308,16 +1308,16 @@ export function Audit() {
               {/* Source A Component */}
               <div className="flex flex-col gap-2 shrink-0 w-full">
                 <span className="text-[0.65rem] font-extrabold uppercase tracking-widest flex items-center gap-2 text-slate-500 px-1 whitespace-nowrap">
-                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="truncate">MR.03 - Teacher Timesheet</span>
+                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="whitespace-normal break-words">MR.03 - Teacher Timesheet</span>
                 </span>
                 <label
                   htmlFor="upload-file-a-audit"
-                  className={`flex flex-col justify-center p-5 md:p-6 border-2 border-dashed rounded-none cursor-pointer transition-all duration-300 relative overflow-hidden group w-full min-h-[80px] ${
+                  className={`flex flex-col justify-center p-3 border-2 border-dashed rounded-none cursor-pointer transition-all duration-300 relative group w-full min-h-[84px] ${
                     fileNameA 
                       ? "bg-emerald-50/30 border-emerald-400/60 shadow-inner hover:bg-emerald-50/50" 
                       : "bg-slate-50/60 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10"
                   }`}
-                  style={{ width: "226.826px", height: "123.65px", borderRadius: "0px" }}
+                  style={{ width: "100%", borderRadius: "0px" }}
                 >
                   <input
                     type="file"
@@ -1338,14 +1338,14 @@ export function Audit() {
                     </div>
                   ) : (
                     <div className="w-full flex items-center gap-3">
-                      <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 text-emerald-600 shadow-sm">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center shrink-0 text-emerald-600 shadow-sm">
                         <CheckCircle2 className="w-5 h-5 animate-bounce-subtle" />
                       </div>
-                      <div className="flex-1 min-w-0 p-2">
-                        <p className="text-[0.65rem] font-bold text-slate-700 truncate leading-snug uppercase tracking-wide">
+                      <div className="flex-1 min-w-0 py-1">
+                        <p className="text-[0.65rem] font-bold text-slate-700 whitespace-normal break-words leading-snug uppercase tracking-wide">
                           {fileNameA}
                         </p>
-                        <p className="text-[11px] leading-tight font-extrabold text-primary uppercase mt-0.5 truncate" title={teacherDateRange || "Dữ liệu đã sẵn sàng"}>
+                        <p className="text-[11px] leading-tight font-extrabold text-primary uppercase mt-0.5 whitespace-normal break-words" title={teacherDateRange || "Dữ liệu đã sẵn sàng"}>
                           {teacherDateRange || "Dữ liệu đã sẵn sàng"}
                         </p>
                         <span className="inline-block text-[8px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded mt-1 tracking-wider uppercase">
@@ -1360,16 +1360,16 @@ export function Audit() {
               {/* Source Config Component */}
               <div className="flex flex-col gap-2 shrink-0 w-full">
                 <span className="text-[0.65rem] font-extrabold uppercase tracking-widest flex items-center gap-2 px-1 text-slate-500 whitespace-nowrap">
-                  <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="truncate">MR.07 - Class hour</span>
+                  <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="whitespace-normal break-words">MR.07 - Class hour</span>
                 </span>
                 <label
                   htmlFor="upload-file-config-audit"
-                  className={`flex flex-col justify-center p-5 md:p-6 border-2 border-dashed rounded-none cursor-pointer transition-all duration-300 relative overflow-hidden group w-full min-h-[80px] ${
+                  className={`flex flex-col justify-center p-3 border-2 border-dashed rounded-none cursor-pointer transition-all duration-300 relative group w-full min-h-[84px] ${
                     fileNameConfig 
                       ? "bg-emerald-50/30 border-emerald-400/60 shadow-inner hover:bg-emerald-50/50" 
                       : "bg-slate-50/60 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10"
                   }`}
-                  style={{ width: "226.82px", height: "123.645px", borderRadius: "0px" }}
+                  style={{ width: "100%", borderRadius: "0px" }}
                 >
                   <input
                     type="file"
@@ -1390,14 +1390,14 @@ export function Audit() {
                     </div>
                   ) : (
                     <div className="w-full flex items-center gap-3">
-                      <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 text-emerald-600 shadow-sm">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center shrink-0 text-emerald-600 shadow-sm">
                         <CheckCircle2 className="w-5 h-5 animate-bounce-subtle" />
                       </div>
-                      <div className="flex-1 min-w-0 p-2">
-                        <p className="text-[0.65rem] font-bold text-slate-700 truncate leading-snug uppercase tracking-wide">
+                      <div className="flex-1 min-w-0 py-1">
+                        <p className="text-[0.65rem] font-bold text-slate-700 whitespace-normal break-words leading-snug uppercase tracking-wide">
                           {fileNameConfig}
                         </p>
-                        <p className="text-[11px] leading-tight font-extrabold text-primary uppercase mt-0.5 truncate" title={configDateRange || "Dữ liệu sĩ số đã tải lên"}>
+                        <p className="text-[11px] leading-tight font-extrabold text-primary uppercase mt-0.5 whitespace-normal break-words" title={configDateRange || "Dữ liệu sĩ số đã tải lên"}>
                           {configDateRange || "DỮ LIỆU SĨ SỐ OK"}
                         </p>
                         <span className="inline-block text-[8px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded mt-1 tracking-wider uppercase">
@@ -1412,15 +1412,15 @@ export function Audit() {
               {/* Source B Component */}
               <div className="flex flex-col gap-2 shrink-0 w-full">
                 <span className="text-[0.65rem] font-extrabold uppercase tracking-widest flex items-center gap-2 text-slate-500 px-1 whitespace-nowrap">
-                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="truncate">Dữ liệu Lớp Học (B)</span>
+                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" /> <span className="whitespace-normal break-words">Dữ liệu Lớp Học (B)</span>
                 </span>
                 <div
-                  className={`flex flex-col justify-center p-5 md:p-6 border-2 border-dashed rounded-none transition-all duration-300 relative overflow-hidden group w-full min-h-[80px] ${
+                  className={`flex flex-col justify-center p-3 border-2 border-dashed rounded-none transition-all duration-300 relative group w-full min-h-[84px] ${
                     rosterData?.length > 0 
                       ? "bg-emerald-50/30 border-emerald-400/60 shadow-inner" 
                       : "bg-slate-50/60 border-slate-200"
                   }`}
-                  style={{ width: "226.82px", height: "123.645px", borderRadius: "0px" }}
+                  style={{ width: "100%", borderRadius: "0px" }}
                 >
                   {!rosterData?.length ? (
                     <div className="text-center py-2 flex flex-col items-center gap-1" style={{ width: "100%" }}>
@@ -1434,14 +1434,14 @@ export function Audit() {
                     </div>
                   ) : (
                     <div className="w-full flex items-center gap-3">
-                      <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 text-emerald-600 shadow-sm">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center shrink-0 text-emerald-600 shadow-sm">
                         <CheckCircle2 className="w-5 h-5 animate-bounce-subtle" />
                       </div>
-                      <div className="flex-1 min-w-0 p-2">
-                        <p className="text-[0.65rem] font-bold text-slate-700 truncate leading-snug uppercase tracking-wide">
+                      <div className="flex-1 min-w-0 py-1">
+                        <p className="text-[0.65rem] font-bold text-slate-700 whitespace-normal break-words leading-snug uppercase tracking-wide">
                           {rosterData.length} dòng dữ liệu
                         </p>
-                        <p className="text-[11px] leading-tight font-extrabold text-primary uppercase mt-0.5 truncate" title={taDateRange || "Đang chờ dữ liệu"}>
+                        <p className="text-[11px] leading-tight font-extrabold text-primary uppercase mt-0.5 whitespace-normal break-words" title={taDateRange || "Đang chờ dữ liệu"}>
                           {taDateRange || "Đang chờ dữ liệu"}
                         </p>
                         <span className="inline-block text-[8px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded mt-1 tracking-wider uppercase border border-emerald-200">
@@ -1473,7 +1473,7 @@ export function Audit() {
                     >
                       Thời gian chung (A, B & MR.07)
                     </h4>
-                    <p className="text-[12px] leading-tight font-black text-primary uppercase truncate"
+                    <p className="text-[12px] leading-tight font-black text-primary uppercase whitespace-normal break-words"
                       style={{ fontSize: "11px", fontWeight: "bold" }}
                     >
                       {commonDateRange || (isProcessing ? "Đang tính toán..." : "Chưa đủ dữ liệu")}

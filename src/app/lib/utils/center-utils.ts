@@ -91,7 +91,8 @@ export function resolveNorthMktLocalL07(rawCenter: string): string {
   if (
     normalized.includes("MKTLOCALNORTHHP") ||
     normalized.includes("MKTHAIPHONG") ||
-    normalized.includes("MKTHP")
+    normalized.includes("MKTHP") ||
+    normalized.includes("HAIPHONG")
   ) {
     return "MKT LOCAL NORTH_HP";
   }
@@ -100,7 +101,8 @@ export function resolveNorthMktLocalL07(rawCenter: string): string {
   if (
     normalized.includes("MKTLOCALNORTHTN") ||
     normalized.includes("MKTTHAINGUYEN") ||
-    normalized.includes("MKTTN")
+    normalized.includes("MKTTN") ||
+    normalized.includes("THAINGUYEN")
   ) {
     return "MKT LOCAL NORTH_TN";
   }
@@ -108,7 +110,8 @@ export function resolveNorthMktLocalL07(rawCenter: string): string {
   if (
     normalized.includes("MKTLOCALNORTHTH") ||
     normalized.includes("MKTTHANHHOA") ||
-    normalized.includes("MKTTH")
+    normalized.includes("MKTTH") ||
+    normalized.includes("THANHHOA")
   ) {
     return "MKT LOCAL NORTH_TH";
   }
@@ -116,7 +119,8 @@ export function resolveNorthMktLocalL07(rawCenter: string): string {
   if (
     normalized.includes("MKTLOCALNORTHPT") ||
     normalized.includes("MKTPHUTHO") ||
-    normalized.includes("MKTPT")
+    normalized.includes("MKTPT") ||
+    normalized.includes("PHUTHO")
   ) {
     return "MKT LOCAL NORTH_PT";
   }
@@ -131,6 +135,9 @@ export function isNorthMktLocalL07(value: string): boolean {
 }
 
 const LOOKUP_MAP = new Map<string, CenterInfo>();
+const FILE_NAME_L07_CACHE = new Map<string, string>();
+let fileNameCenterCandidates: Array<{ info: CenterInfo; key: string }> | null =
+  null;
 
 CENTER_DATA.forEach((info) => {
   const normL07 = normalizeCenterKey(info.l07);
@@ -289,9 +296,47 @@ export function resolveMktAndCenterL07(
 
 export function getL07FromFileName(fileName: string): string {
   if (!fileName) return "";
-  const name = fileName.toUpperCase();
-  if (name.includes("MKT")) return "MKT LOCAL NORTH";
-  return mapL07(fileName);
+  const normalizedName = String(fileName)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const compactName = normalizedName.replace(/\s+/g, "");
+  const cached = FILE_NAME_L07_CACHE.get(normalizedName);
+  if (cached !== undefined) return cached;
+
+  if (normalizedName.includes("MKT") || normalizedName.includes("MARKETING")) {
+    const mktL07 = resolveNorthMktLocalL07(fileName) || "MKT LOCAL NORTH";
+    FILE_NAME_L07_CACHE.set(normalizedName, mktL07);
+    return mktL07;
+  }
+
+  if (!fileNameCenterCandidates) {
+    fileNameCenterCandidates = CENTER_DATA.filter(
+      (info) => !info.l07.toUpperCase().startsWith("MKT"),
+    )
+      .flatMap((info) =>
+        [info.l07, info.aeCode, ...info.keys].map((key) => ({
+          info,
+          key: normalizeCenterKey(key),
+        })),
+      )
+      .sort((left, right) => right.key.length - left.key.length);
+  }
+
+  const nameTokens = new Set(normalizedName.split(" ").filter(Boolean));
+  const match = fileNameCenterCandidates.find(({ key }) => {
+    if (!key) return false;
+    if (key.length >= 5 && compactName.includes(key)) return true;
+    return key.length >= 3 && nameTokens.has(key);
+  });
+
+  const resolvedL07 = match?.info.l07 || "";
+  FILE_NAME_L07_CACHE.set(normalizedName, resolvedL07);
+  return resolvedL07;
 }
 
 export function getL07FromChargeToCenterMkt(chargeToCenter: string): string {

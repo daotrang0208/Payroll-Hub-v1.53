@@ -30,7 +30,6 @@ import {
   Check,
   ArrowRight,
   Coins,
-  TrendingUp,
   TrendingDown,
   Calendar,
   Copy,
@@ -55,6 +54,11 @@ import {
   removeVietnameseTones,
   formatIdNumber,
 } from "../../lib/utils/data-utils";
+import {
+  buildBankAccountIndex,
+  getBankAccount,
+  normalizePayrollId,
+} from "../../lib/utils/bank-account-resolver";
 import {
   processBulkPaymentTotals,
   isBUOfBankType,
@@ -235,6 +239,7 @@ export function BulkPayment({
     ALL_ANALYS_BUSINESS_UNITS,
   );
   const [analysSearchTerm, setAnalysSearchTerm] = useState("");
+  const [analysSearchVisible, setAnalysSearchVisible] = useState(false);
 
   useEffect(() => {
     const handleSetRightTab = (e: any) => {
@@ -610,9 +615,17 @@ export function BulkPayment({
   // Unified Reconciliation Audit computation across database tables
   const reconciliationAudit = useMemo(() => {
     const bankExportRows =
-      appData.BankExport?.data || appData.Bank_North_AE?.data || [];
+      appData.BankExport?.data?.length > 0
+        ? appData.BankExport.data
+        : appData.Bank_North_AE?.data || [];
     const sheet1Rows = appData.Sheet1_AE?.data || [];
     const holdRows = appData.Hold_AE?.data || [];
+    const accountById = buildBankAccountIndex([
+      { source: "Gross Pay", rows: sheet1Rows },
+      { source: "Transaction", rows: appData.BankExport?.data || [] },
+      { source: "Transaction", rows: appData.Bank_North_AE?.data || [] },
+      { source: "HOLD AE", rows: holdRows },
+    ]);
 
     const activeSheet1RowsList: any[] = [];
     const activeHoldRowsList: any[] = [];
@@ -1171,12 +1184,15 @@ export function BulkPayment({
         matchedCount++;
       }
 
-      const benefitsAccountNo = String(
-        primaryMatchedRow?.["Bank Account Number"] ||
-          row["Bank Account Number"] ||
-          row["Beneficiary Account No."] ||
-          "",
-      ).trim();
+      const accountLookupId = normalizePayrollId(
+        primaryMatchedRow?.["ID Number"] ||
+          primaryMatchedRow?.["Mã AE"] ||
+          displayDocId,
+      );
+      const benefitsAccountNo =
+        getBankAccount(primaryMatchedRow) ||
+        accountById.get(accountLookupId)?.accountNumber ||
+        getBankAccount(row);
       const grossPlusBenefitsId = formatIdNumber(
         primaryMatchedRow?.["ID Number"] ||
           primaryMatchedRow?.["Mã AE"] ||
@@ -1415,9 +1431,10 @@ export function BulkPayment({
           "",
       ).trim();
       const displayDocId = formatIdNumber(rawDocId);
-      const accountNo = String(
-        r["Bank Account Number"] || r["Beneficiary Account No."] || "",
-      ).trim();
+      const accountNo =
+        getBankAccount(r) ||
+        accountById.get(normalizePayrollId(displayDocId))?.accountNumber ||
+        "";
       const bankName = String(
         r["Beneficiary Bank Swift Code / IFSC Code"] ||
           r["Beneficiary Bank"] ||
@@ -1475,9 +1492,10 @@ export function BulkPayment({
           "",
       ).trim();
       const displayDocId = formatIdNumber(rawDocId);
-      const accountNo = String(
-        r["Bank Account Number"] || r["Beneficiary Account No."] || "",
-      ).trim();
+      const accountNo =
+        getBankAccount(r) ||
+        accountById.get(normalizePayrollId(displayDocId))?.accountNumber ||
+        "";
       const bankName = String(
         r["Beneficiary Bank Swift Code / IFSC Code"] ||
           r["Beneficiary Bank"] ||
@@ -1907,9 +1925,9 @@ export function BulkPayment({
       {/* Left Panel - Actions & Info (Unified Scrollable Card) */}
       {showLeftCard && (
         <div
-          className="w-[340px] bg-white border-r border-slate-200/80 flex flex-col gap-0 shrink-0 overflow-hidden min-h-0 relative select-text shadow-sm h-full rounded-2xl mr-4"
+          className="payroll-theme-card w-[340px] border flex flex-col gap-0 shrink-0 overflow-hidden min-h-0 relative select-text shadow-sm h-full rounded-2xl mr-4"
           style={{
-            backgroundColor: "#faf8fa",
+            backgroundColor: "var(--card, #fff)",
           }}
         >
           {/* Header */}
@@ -1919,7 +1937,8 @@ export function BulkPayment({
               height: "73px",
               minHeight: "73px",
               maxHeight: "73px",
-              backgroundColor: "#F5F4F5",
+              backgroundColor:
+                "color-mix(in srgb, var(--primary) 5%, var(--card, #fff))",
             }}
           >
             <div className="flex flex-col gap-0.5">
@@ -1943,7 +1962,7 @@ export function BulkPayment({
           </div>
 
           <div
-            className="flex items-center gap-1.5 p-2 bg-slate-100/60 border-b shrink-0"
+            className="flex items-center gap-1 p-1.5 bg-primary/[0.035] border-b shrink-0"
             style={{ borderColor: "#f0e3ef" }}
           >
             {[
@@ -1958,13 +1977,13 @@ export function BulkPayment({
               <button
                 key={t.id}
                 onClick={() => setActiveLeftTab(t.id as any)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer active:scale-[0.98] active:translate-y-[1px] ${
+                className={`flex h-7 flex-1 items-center justify-center gap-1 px-1.5 rounded-lg text-[8.5px] font-extrabold uppercase tracking-[0.08em] transition-all cursor-pointer active:scale-[0.98] active:translate-y-[1px] ${
                   activeLeftTab === t.id
-                    ? "bg-slate-900 text-white shadow-md border border-slate-800"
-                    : "bg-white text-slate-600 border border-slate-200/80 hover:text-slate-900 hover:bg-slate-50 shadow-2xs"
+                    ? "bg-primary text-white shadow-sm border border-primary"
+                    : "bg-[var(--card,#fff)] text-slate-600 border border-primary/10 hover:text-primary hover:bg-primary/[0.04] shadow-2xs"
                 }`}
               >
-                <t.icon className="w-3.5 h-3.5" />
+                <t.icon className="h-3 w-3" />
                 <span>{t.label}</span>
               </button>
             ))}
@@ -2151,7 +2170,7 @@ export function BulkPayment({
                           : (dynamicReportStats.finalTotals[biz] || (sheet1Val + deductionsSum));
 
                         return (
-                          <div className="bg-slate-50/40 rounded-xl p-3 border border-slate-200/60 flex flex-col gap-2 shadow-xs transition-all hover:border-slate-300">
+                          <div className="payroll-theme-card rounded-xl p-3 border flex flex-col gap-2 shadow-xs transition-all">
                             <div className="flex justify-between items-center">
                               <span className="text-slate-600 font-extrabold font-sans text-[10px] uppercase tracking-wider leading-none">
                                 🎀 GROSS PAY:
@@ -2498,7 +2517,7 @@ export function BulkPayment({
                   transition={{ duration: 0.15 }}
                   className="flex flex-col gap-3 max-h-[75vh] overflow-y-auto pr-1"
                 >
-                  <div className="bg-[#FAF9F6] border border-slate-200/85 rounded-2xl p-3 flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+                  <div className="payroll-theme-card border rounded-2xl p-3 flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
                     <div className="flex items-center justify-between border-b border-slate-200/40 pb-2">
                       <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest font-sans flex items-center gap-1.5">
                         <Scale className="w-3.5 h-3.5 text-primary" />
@@ -2616,17 +2635,7 @@ export function BulkPayment({
                       const diff = totalAcc - totalBulkPayment;
 
                       return (
-                        <div
-                          className={`border rounded-xl p-3 flex flex-col gap-1.5 shadow-sm transition-colors ${
-                            activeBalanceSection === "I"
-                              ? "bg-indigo-50/40 border-indigo-100"
-                              : activeBalanceSection === "II"
-                                ? "bg-rose-50/40 border-rose-100"
-                                : activeBalanceSection === "III"
-                                  ? "bg-emerald-50/40 border-emerald-100"
-                                  : "bg-sky-50/40 border-sky-100"
-                          }`}
-                        >
+                        <div className="payroll-theme-card border rounded-xl p-3 flex flex-col gap-1.5 shadow-sm transition-colors">
                           <div
                             className={`flex justify-between items-center border-b pb-1.5 relative ${
                               activeBalanceSection === "I"
@@ -2967,18 +2976,16 @@ export function BulkPayment({
             minHeight: "73px",
             maxHeight: "73px",
             backgroundColor:
-              rightPanelTab === "visuals" ? "#FAF9F6" : "#F5F4F5",
+              "color-mix(in srgb, var(--primary) 5%, var(--card, #fff))",
           }}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               onClick={() => setShowLeftCard(!showLeftCard)}
-              className={`w-7 h-7 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs ${
-                rightPanelTab === "visuals" ? "rounded-none" : "rounded-lg"
-              } ${
+              className={`w-7 h-7 rounded-full transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs ${
                 showLeftCard
-                  ? "bg-white text-[#781D1D] border border-[#e7dbdc] hover:bg-rose-50/70"
-                  : "bg-[#781D1D] text-white border border-[#781D1D] shadow-xs hover:bg-[#600032]"
+                  ? "bg-[var(--card,#fff)] text-primary border border-primary/15 hover:bg-primary/[0.05]"
+                  : "bg-primary text-white border border-primary shadow-xs hover:brightness-90"
               }`}
               title={
                 showLeftCard ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"
@@ -2986,13 +2993,6 @@ export function BulkPayment({
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
             </button>
-
-            {displayBankExportData.length > 0 &&
-              rightPanelTab === "visuals" && (
-                <div className="hidden h-8 w-8 shrink-0 items-center justify-center bg-[#781D1D] text-white lg:flex">
-                  <TrendingUp className="h-4 w-4" />
-                </div>
-              )}
 
             {displayBankExportData.length > 0 && (
               <div
@@ -3012,7 +3012,7 @@ export function BulkPayment({
                         e.target.value,
                       );
                     }}
-                    className={`appearance-none bg-transparent hover:bg-transparent border-0 rounded-none pl-1 pr-6 py-1 font-extrabold uppercase text-slate-700 focus:outline-none transition-all cursor-pointer shadow-none ${
+                    className={`title-select-plain appearance-none bg-transparent hover:bg-transparent border-0 rounded-none pl-1 pr-6 py-1 font-extrabold uppercase text-slate-700 focus:outline-none transition-all cursor-pointer shadow-none ${
                       rightPanelTab === "visuals"
                         ? "h-6 text-[12px] tracking-[0.14em]"
                         : "h-7 text-[11px] tracking-widest"
@@ -3153,18 +3153,32 @@ export function BulkPayment({
                     <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
                   </div>
 
-                  <div className="relative hidden min-w-[130px] max-w-[220px] flex-1 min-[1180px]:block">
+                  {analysSearchVisible && (
+                  <div className="relative min-w-[150px] max-w-[240px] flex-1">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     <input
+                      autoFocus
                       value={analysSearchTerm}
                       onChange={(event) =>
                         setAnalysSearchTerm(event.target.value)
                       }
-                      className="h-8 w-full border border-slate-300 bg-white pl-8 pr-3 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-slate-400 focus:border-[#781D1D]"
+                      className="h-8 w-full rounded-full border border-primary/20 bg-[var(--card,#fff)] pl-8 pr-8 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-primary/40 focus:border-primary"
                       placeholder="Tìm BU hoặc tháng…"
                       aria-label="Tìm kiếm trong bảng ANALYS"
                     />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAnalysSearchTerm("");
+                        setAnalysSearchVisible(false);
+                      }}
+                      className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-primary/[0.08] hover:text-primary"
+                      title="Đóng tìm kiếm"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
+                  )}
                 </div>
               )}
           </div>
@@ -3173,11 +3187,7 @@ export function BulkPayment({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`border border-slate-200 text-slate-700 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs shrink-0 ${
-                    rightPanelTab === "visuals"
-                      ? "rounded-none bg-[#FAF9F6] hover:bg-[#F2EFE9]"
-                      : "rounded-full bg-white hover:bg-slate-50"
-                  }`}
+                  className="rounded-full border border-primary/15 bg-[var(--card,#fff)] text-slate-700 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs shrink-0 hover:bg-primary/[0.05]"
                   style={{ width: "33.1913px", height: "33.1913px", minWidth: "33.1913px", minHeight: "33.1913px" }}
                   title={
                     rightPanelTab === "visuals"
@@ -3190,13 +3200,13 @@ export function BulkPayment({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-56 p-1.5 rounded-xl shadow-lg border border-slate-200 bg-white z-50"
+                className="w-60"
               >
                 <DropdownMenuItem
                   onClick={() =>
                     window.dispatchEvent(new Event("open-ui-settings"))
                   }
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-slate-50 text-slate-700 font-bold text-xs"
+                  className="text-slate-700"
                 >
                   <Settings className="w-4 h-4 text-slate-500" />
                   <span>Cài đặt Giao diện</span>
@@ -3209,12 +3219,25 @@ export function BulkPayment({
                     </DropdownMenuLabel>
                     <DropdownMenuItem
                       onClick={() => {
+                        setAnalysSearchVisible((current) => {
+                          if (current) setAnalysSearchTerm("");
+                          return !current;
+                        });
+                      }}
+                    >
+                      <Search className="h-4 w-4 shrink-0 text-primary" />
+                      <span>
+                        {analysSearchVisible ? "Ẩn tìm kiếm" : "Tìm kiếm"}
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
                         setAnalysSelectedBusiness(
                           ALL_ANALYS_BUSINESS_UNITS,
                         );
                         setAnalysSearchTerm("");
                       }}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-[#FAF9F6]"
+                      className="text-slate-700"
                     >
                       <RefreshCw className="h-4 w-4 shrink-0 text-[#781D1D]" />
                       <span>Đặt lại bộ lọc</span>
@@ -3292,7 +3315,7 @@ export function BulkPayment({
         ) : (
           <div
             className="flex-1 min-h-0 bg-white dark:bg-card relative z-10 flex flex-col rounded-none border-0 overflow-hidden"
-            style={{ backgroundColor: "#f5f4f7" }}
+            style={{ backgroundColor: "var(--card, #fff)" }}
           >
             <AnimatePresence mode="wait">
               {rightPanelTab === "table" && (

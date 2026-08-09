@@ -17,7 +17,8 @@ import {
   Rows,
   Plus,
   X,
-  Settings
+  Settings,
+  Maximize2,
 } from "lucide-react";
 import { useAppData } from "../../lib/contexts/AppDataContext";
 import { buildPivotFromAppData } from "../../lib/utils/pivot-utils";
@@ -1235,6 +1236,46 @@ export function PivotSheet() {
     });
   }, [allFlatRows, safeTypeColumns, sortField, sortDirection]);
 
+  const autoFitAllColumns = useCallback(() => {
+    const rowsToMeasure = sortedFlatRows.slice(0, 1000);
+    const widthFor = (values: unknown[], header: string, min: number, max: number) => {
+      const longest = values.reduce<number>(
+        (length, value) => Math.max(length, String(value ?? "").length),
+        header.length,
+      );
+      return Math.min(max, Math.max(min, longest * 7.5 + 28));
+    };
+
+    const nextWidths: Record<string, number> = {
+      no: 62,
+      business: widthFor(rowsToMeasure.map((row) => row.bu), "Business", 82, 150),
+      charge: widthFor(rowsToMeasure.map((row) => row.l07), "L07", 120, 300),
+      month: widthFor(rowsToMeasure.map((row) => row.month), "Tháng", 78, 120),
+      grandTotal: widthFor(
+        rowsToMeasure.map((row) => row.rowTotal?.toLocaleString("en-US")),
+        "TỔNG CỘNG",
+        110,
+        190,
+      ),
+    };
+
+    safeTypeColumns.forEach((type, typeIndex) => {
+      nextWidths[`type_${type}`] = widthFor(
+        rowsToMeasure.map((row) => (row.values[typeIndex] || 0).toLocaleString("en-US")),
+        type,
+        88,
+        190,
+      );
+    });
+
+    setColumnWidths(nextWidths);
+    try {
+      localStorage.setItem("pivot_master_column_widths", JSON.stringify(nextWidths));
+    } catch {
+      // Ignore local storage quota/privacy errors.
+    }
+  }, [safeTypeColumns, sortedFlatRows]);
+
   const totalRowsCount = sortedFlatRows.length;
   const totalPages =
     rowsPerPage === Infinity
@@ -1272,7 +1313,7 @@ export function PivotSheet() {
       return (
         <tr 
           key={`${item.bu}-${item.l07}-${item.month}`} 
-          className={`transition-colors border-b border-[#e7dbdc] ${idx % 2 === 0 ? "bg-white" : "bg-[#FAF9F6]/40"} hover:bg-amber-50/40`}
+          className="transition-colors border-b border-[#e7dbdc] bg-white hover:bg-amber-50/40"
         >
           {!hiddenColumns.no && (
             <td 
@@ -1388,7 +1429,7 @@ export function PivotSheet() {
                     className="w-full bg-amber-50 border border-amber-400 font-mono text-slate-900 text-xs px-1.5 py-0.5 rounded outline-none focus:ring-1 focus:ring-amber-500 text-right"
                   />
                 ) : (
-                  <span>{val ? val.toLocaleString("en-US") : "-"}</span>
+                  <span>{val ? val.toLocaleString("en-US") : "0"}</span>
                 )}
               </td>
             );
@@ -1640,7 +1681,21 @@ export function PivotSheet() {
                     onClick={() => toggleSort("no")}
                     className="py-2.5 px-2 text-center border-r border-[#e7dbdc] font-semibold text-slate-600 bg-slate-100/95 uppercase text-[10px] tracking-wider relative cursor-pointer hover:bg-slate-200/80 transition-colors"
                   >
-                    <span>No.</span>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      No.
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          autoFitAllColumns();
+                        }}
+                        className="inline-flex w-5 h-5 items-center justify-center rounded-full text-slate-500 hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Căn độ rộng tất cả cột theo dữ liệu"
+                        aria-label="Căn độ rộng tất cả cột theo dữ liệu"
+                      >
+                        <Maximize2 className="w-3 h-3" />
+                      </button>
+                    </span>
                     <div
                       onMouseDown={(e) => handleResizeStart(e, "no", 50)}
                       className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-amber-400 opacity-0 hover:opacity-100 transition-opacity"

@@ -14,6 +14,12 @@ import { AppData } from "../../types";
 import { INITIAL_APP_DATA } from "../../constants/initial-data";
 import { parseMoneyToNumber, removeVietnameseTones, formatIdNumber } from "../utils/data-utils";
 import { resolveL07BuFromAeCode } from "../utils/center-utils";
+import {
+  buildBankAccountIndex,
+  getBankAccount,
+  getPayrollId,
+  rowBelongsToReportMonth,
+} from "../utils/bank-account-resolver";
 
 // Configure localforage
 localforage.config({
@@ -344,7 +350,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Memoized context values — only re-create when actual data changes ──
-  const { Hold_AE, Sheet1_AE, globalMonth } = state.present;
+  const { Hold_AE, Sheet1_AE, Bank_North_AE, BankExport, globalMonth } = state.present;
 
   const computedHoldAE = useMemo(() => {
     if (!Hold_AE || !Hold_AE.data) return Hold_AE;
@@ -368,6 +374,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     const accToSheet1: Record<string, string> = {};
 
     const sheet1Rows = Sheet1_AE?.data || [];
+    const transactionRows = [
+      ...(BankExport?.data || []),
+      ...(Bank_North_AE?.data || []),
+    ];
+    const bankAccountById = buildBankAccountIndex([
+      { source: "Gross Pay", rows: sheet1Rows },
+      { source: "Transaction", rows: transactionRows },
+    ]);
+    const transactionIdsInReportMonth = new Set(
+      transactionRows
+        .filter((row) => rowBelongsToReportMonth(row, globalMonth))
+        .map(getPayrollId)
+        .filter(Boolean),
+    );
     sheet1Rows.forEach((row) => {
       const id = formatIdNumber(row["ID Number"]);
       const name = removeVietnameseTones(
@@ -590,10 +610,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         if (!bu) bu = resolved.bu;
       }
 
+      const payrollId = getPayrollId(row);
+      const currentAccount = getBankAccount(row);
+      const accountMatch = !currentAccount && payrollId
+        ? bankAccountById.get(payrollId)
+        : undefined;
+      const resolvedAccount = currentAccount || accountMatch?.accountNumber || "";
+      const upperType = type.toUpperCase();
+      const isHoldOrCancel = upperType === "HOLD" || upperType === "CANCEL";
+      const hasTransactionInReportMonth = payrollId
+        ? transactionIdsInReportMonth.has(payrollId)
+        : false;
+      const bankAccountExempt = !resolvedAccount && isHoldOrCancel && !hasTransactionInReportMonth;
+
       return {
         ...row,
         "L07": l07,
         "BU": bu,
+        "Bank Account Number": resolvedAccount,
+        _bankAccountAutoFilled: Boolean(accountMatch),
+        _bankAccountAutoFilledFrom: accountMatch?.source || "",
+        _bankAccountExempt: bankAccountExempt,
+        _bankAccountMissingRequired: !resolvedAccount && !bankAccountExempt,
         _originalIndex: index,
         _originalTinhTrangThanhToan: row["Tình trạng thanh toán"] !== undefined ? String(row["Tình trạng thanh toán"]) : "",
         "Tháng báo cáo": finalReportingMonthStr,
@@ -671,6 +709,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [
     Hold_AE,
     Sheet1_AE?.data,
+    Bank_North_AE?.data,
+    BankExport?.data,
     globalMonth,
   ]);
 

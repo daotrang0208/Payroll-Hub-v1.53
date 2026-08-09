@@ -10,7 +10,7 @@ interface BulkPaymentAnalyticsProps {
   onSearchTermChange: (value: string) => void;
 }
 
-const CONTEXT_GROUP = "Ngữ cảnh";
+const CONTEXT_GROUP = "Thông tin chung";
 const PAYMENT_GROUP = "Chi phí & thanh toán";
 const ADJUSTMENT_GROUP = "Điều chỉnh trong kỳ";
 const BALANCE_GROUP = "Số dư & đối soát";
@@ -230,8 +230,8 @@ export function BulkPaymentAnalytics({
           defaultItemsPerPage={50}
           rowHeight={38}
           stickyHeader={true}
-          stickyFirstColumn={true}
-          striped={true}
+          stickyFirstColumn={false}
+          striped={false}
           ignoreSavedHiddenColumns={true}
           ignoreSavedPagination={true}
           headerClassName="bg-[#FAF9F6] text-slate-800 border-slate-300 font-bold text-[9px] uppercase tracking-[0.08em] text-center"
