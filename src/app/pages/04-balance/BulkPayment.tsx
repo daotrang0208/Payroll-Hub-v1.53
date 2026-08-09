@@ -234,6 +234,7 @@ export function BulkPayment({
   const [analysSelectedBusiness, setAnalysSelectedBusiness] = useState(
     ALL_ANALYS_BUSINESS_UNITS,
   );
+  const [analysSearchTerm, setAnalysSearchTerm] = useState("");
 
   useEffect(() => {
     const handleSetRightTab = (e: any) => {
@@ -2948,7 +2949,7 @@ export function BulkPayment({
       <div
         className="flex-1 bg-white border border-slate-300 dark:border-slate-700 rounded-xl flex flex-col overflow-hidden min-h-0 shadow-xs relative pb-0 h-full"
         style={{
-          borderRadius: "12px",
+          borderRadius: rightPanelTab === "visuals" ? "0px" : "12px",
           borderWidth: "1px",
           borderColor: "#cbd5e1",
           marginLeft: "0px",
@@ -2969,10 +2970,12 @@ export function BulkPayment({
               rightPanelTab === "visuals" ? "#FAF9F6" : "#F5F4F5",
           }}
         >
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               onClick={() => setShowLeftCard(!showLeftCard)}
-              className={`w-7 h-7 rounded-lg transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs ${
+              className={`w-7 h-7 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs ${
+                rightPanelTab === "visuals" ? "rounded-none" : "rounded-lg"
+              } ${
                 showLeftCard
                   ? "bg-white text-[#781D1D] border border-[#e7dbdc] hover:bg-rose-50/70"
                   : "bg-[#781D1D] text-white border border-[#781D1D] shadow-xs hover:bg-[#600032]"
@@ -2984,8 +2987,21 @@ export function BulkPayment({
               <LayoutDashboard className="w-4 h-4 shrink-0" />
             </button>
 
+            {displayBankExportData.length > 0 &&
+              rightPanelTab === "visuals" && (
+                <div className="hidden h-8 w-8 shrink-0 items-center justify-center bg-[#781D1D] text-white lg:flex">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+              )}
+
             {displayBankExportData.length > 0 && (
-              <div className="flex items-center ml-1">
+              <div
+                className={`flex shrink-0 ${
+                  rightPanelTab === "visuals"
+                    ? "flex-col items-start gap-0"
+                    : "ml-1 items-center"
+                }`}
+              >
                 <div className="flex items-center relative">
                   <select
                     value={rightPanelTab}
@@ -2996,7 +3012,11 @@ export function BulkPayment({
                         e.target.value,
                       );
                     }}
-                    className="appearance-none bg-transparent hover:bg-transparent border-0 rounded-none pl-1 pr-6 py-1 text-[11px] font-extrabold uppercase tracking-widest text-slate-700 focus:outline-none transition-all cursor-pointer h-7 shadow-none"
+                    className={`appearance-none bg-transparent hover:bg-transparent border-0 rounded-none pl-1 pr-6 py-1 font-extrabold uppercase text-slate-700 focus:outline-none transition-all cursor-pointer shadow-none ${
+                      rightPanelTab === "visuals"
+                        ? "h-6 text-[12px] tracking-[0.14em]"
+                        : "h-7 text-[11px] tracking-widest"
+                    }`}
                   >
                     <option 
                       value="table"
@@ -3019,6 +3039,11 @@ export function BulkPayment({
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-600 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                {rightPanelTab === "visuals" && (
+                  <span className="hidden max-w-[250px] truncate pl-1 text-[7px] font-bold uppercase tracking-[0.1em] text-slate-500 xl:block">
+                    Đối soát thanh toán theo BU & tháng phát sinh
+                  </span>
+                )}
               </div>
             )}
 
@@ -3090,42 +3115,56 @@ export function BulkPayment({
 
             {displayBankExportData.length > 0 &&
               rightPanelTab === "visuals" && (
-                <div className="flex min-w-0 items-center gap-3 border-l border-slate-300 pl-4 ml-2">
-                <div className="hidden xl:flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">
-                    Tháng báo cáo
-                  </span>
-                  <span className="font-mono text-[11px] font-black text-[#781D1D]">
-                    {analysAnalytics?.currentPeriod}
-                  </span>
-                </div>
-                <label
-                  htmlFor="analys-business-filter"
-                  className="whitespace-nowrap text-[9px] font-extrabold uppercase tracking-wider text-slate-600"
-                >
-                  BU theo dõi
-                </label>
-                <div className="relative min-w-0">
-                  <select
-                    id="analys-business-filter"
-                    value={effectiveAnalysBusiness}
-                    onChange={(event) =>
-                      setAnalysSelectedBusiness(event.target.value)
-                    }
-                    className="h-8 w-[180px] max-w-[32vw] appearance-none border border-slate-300 bg-white pl-3 pr-8 text-[10px] font-bold text-slate-700 outline-none transition-colors hover:border-slate-400 focus:border-[#781D1D]"
-                    title="Chọn BU theo dõi trên bảng ANALYS"
+                <div className="ml-1 flex min-w-0 flex-1 items-center gap-2 border-l border-slate-300 pl-3">
+                  <div className="hidden shrink-0 flex-col gap-0.5 2xl:flex">
+                    <span className="text-[7px] font-bold uppercase tracking-widest text-slate-500">
+                      Tháng báo cáo
+                    </span>
+                    <span className="font-mono text-[10px] font-black text-[#781D1D]">
+                      {analysAnalytics?.currentPeriod}
+                    </span>
+                  </div>
+
+                  <label
+                    htmlFor="analys-business-filter"
+                    className="hidden whitespace-nowrap text-[8px] font-extrabold uppercase tracking-wider text-slate-600 xl:block"
                   >
-                    <option value={ALL_ANALYS_BUSINESS_UNITS}>
-                      Tất cả BU
-                    </option>
-                    {analysBusinessUnits.map((business) => (
-                      <option key={business} value={business}>
-                        {business}
+                    BU theo dõi
+                  </label>
+                  <div className="relative min-w-0 shrink-0">
+                    <select
+                      id="analys-business-filter"
+                      value={effectiveAnalysBusiness}
+                      onChange={(event) =>
+                        setAnalysSelectedBusiness(event.target.value)
+                      }
+                      className="h-8 w-[clamp(128px,13vw,180px)] appearance-none border border-slate-300 bg-white pl-3 pr-8 text-[9px] font-bold uppercase text-slate-700 outline-none transition-colors hover:border-slate-400 focus:border-[#781D1D]"
+                      title="Chọn BU theo dõi trên bảng ANALYS"
+                    >
+                      <option value={ALL_ANALYS_BUSINESS_UNITS}>
+                        Tất cả BU
                       </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                </div>
+                      {analysBusinessUnits.map((business) => (
+                        <option key={business} value={business}>
+                          {business}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                  </div>
+
+                  <div className="relative hidden min-w-[130px] max-w-[220px] flex-1 min-[1180px]:block">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={analysSearchTerm}
+                      onChange={(event) =>
+                        setAnalysSearchTerm(event.target.value)
+                      }
+                      className="h-8 w-full border border-slate-300 bg-white pl-8 pr-3 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-slate-400 focus:border-[#781D1D]"
+                      placeholder="Tìm BU hoặc tháng…"
+                      aria-label="Tìm kiếm trong bảng ANALYS"
+                    />
+                  </div>
                 </div>
               )}
           </div>
@@ -3134,10 +3173,10 @@ export function BulkPayment({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`rounded-full border border-slate-200 text-slate-700 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs shrink-0 ${
+                  className={`border border-slate-200 text-slate-700 transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs shrink-0 ${
                     rightPanelTab === "visuals"
-                      ? "bg-[#FAF9F6] hover:bg-[#F2EFE9]"
-                      : "bg-white hover:bg-slate-50"
+                      ? "rounded-none bg-[#FAF9F6] hover:bg-[#F2EFE9]"
+                      : "rounded-full bg-white hover:bg-slate-50"
                   }`}
                   style={{ width: "33.1913px", height: "33.1913px", minWidth: "33.1913px", minHeight: "33.1913px" }}
                   title={
@@ -3162,38 +3201,63 @@ export function BulkPayment({
                   <Settings className="w-4 h-4 text-slate-500" />
                   <span>Cài đặt Giao diện</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="my-1 border-slate-100" />
-                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 py-1">
-                  Thao tác dữ liệu
-                </DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={handleAutoFillMissingAccountBulk}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-amber-50 text-slate-700 hover:text-amber-800 font-bold text-xs"
-                >
-                  <Zap className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Đồng bộ hàng loạt</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="my-1 border-slate-100" />
-                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 py-1">
-                  Xuất File Excel
-                </DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => {
-                    handleExportExcel();
-                    toast.success("Đã xuất file Excel Bank Export thành công!");
-                  }}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 font-bold text-xs"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Xuất Bảng kê Bank Export</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleExportReconciliationExcel}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-sky-50 text-slate-700 hover:text-sky-800 font-bold text-xs"
-                >
-                  <Scale className="w-4 h-4 text-sky-600 shrink-0" />
-                  <span>Xuất Báo cáo Đối soát</span>
-                </DropdownMenuItem>
+                {rightPanelTab === "visuals" ? (
+                  <>
+                    <DropdownMenuSeparator className="my-1 border-slate-100" />
+                    <DropdownMenuLabel className="px-2 py-1 text-[10px] font-black uppercase text-slate-400">
+                      Bảng ANALYS
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAnalysSelectedBusiness(
+                          ALL_ANALYS_BUSINESS_UNITS,
+                        );
+                        setAnalysSearchTerm("");
+                      }}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-[#FAF9F6]"
+                    >
+                      <RefreshCw className="h-4 w-4 shrink-0 text-[#781D1D]" />
+                      <span>Đặt lại bộ lọc</span>
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuSeparator className="my-1 border-slate-100" />
+                    <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 py-1">
+                      Thao tác dữ liệu
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={handleAutoFillMissingAccountBulk}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-amber-50 text-slate-700 hover:text-amber-800 font-bold text-xs"
+                    >
+                      <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>Đồng bộ hàng loạt</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1 border-slate-100" />
+                    <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 py-1">
+                      Xuất File Excel
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        handleExportExcel();
+                        toast.success(
+                          "Đã xuất file Excel Bank Export thành công!",
+                        );
+                      }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 font-bold text-xs"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Xuất Bảng kê Bank Export</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleExportReconciliationExcel}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-sky-50 text-slate-700 hover:text-sky-800 font-bold text-xs"
+                    >
+                      <Scale className="w-4 h-4 text-sky-600 shrink-0" />
+                      <span>Xuất Báo cáo Đối soát</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -3867,6 +3931,8 @@ export function BulkPayment({
                       analytics={analysAnalytics}
                       selectedBusiness={effectiveAnalysBusiness}
                       allBusinessUnitsValue={ALL_ANALYS_BUSINESS_UNITS}
+                      searchTerm={analysSearchTerm}
+                      onSearchTermChange={setAnalysSearchTerm}
                     />
                   )}
                 </motion.div>

@@ -80,6 +80,7 @@ export interface Column {
   filterable?: boolean;
   hidden?: boolean;
   width?: number | string;
+  groupHeaderClassName?: string;
   headerClassName?: string;
   headerSpanClassName?: string;
   cellClassName?: string;
@@ -190,7 +191,7 @@ const looksLikeNumericValue = (value: unknown): boolean => {
   if (typeof value === "bigint") return true;
   const text = String(value ?? "").trim();
   if (!text || !/\d/.test(text)) return false;
-  return /^\(?[+\-]?\s*(?:(?:VND|VNĐ|Đ|DONG|₫)\s*)?\d[\d\s.,]*(?:\s*(?:VND|VNĐ|Đ|DONG|₫))?\)?$/i.test(
+  return /^\(?[+-]?\s*(?:(?:VND|VNĐ|Đ|DONG|₫)\s*)?\d[\d\s.,]*(?:\s*(?:VND|VNĐ|Đ|DONG|₫))?\)?$/i.test(
     text,
   );
 };
@@ -1424,6 +1425,10 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
       let colorIdx = 0;
       columns.forEach((c) => {
         if (c.group && !map.has(c.group)) {
+          if (c.groupHeaderClassName) {
+            map.set(c.group, c.groupHeaderClassName);
+            return;
+          }
           const groupLower = c.group.toLowerCase();
           if (groupLower.includes("academic")) {
             map.set(c.group, "academic-group");
@@ -2935,7 +2940,6 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                               key={idx} 
                               colSpan={g.count}
                               className={`has-group ${groupBg} border-r ${borderClass} py-1 text-[var(--header-font-size,0.65rem)] font-bold uppercase text-center shadow-[0_1px_0_var(--table-border-color,#e7dbdc)] whitespace-normal align-middle`}
-                              style={{ backgroundColor: "var(--table-header-bg, var(--secondary, #FAF9F6))" }}
                             >
                               {g.group}
                             </th>
