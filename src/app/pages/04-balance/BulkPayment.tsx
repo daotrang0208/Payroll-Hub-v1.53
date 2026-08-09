@@ -2959,7 +2959,7 @@ export function BulkPayment({
         className="flex-1 bg-white border border-slate-300 dark:border-slate-700 rounded-xl flex flex-col overflow-hidden min-h-0 shadow-xs relative pb-0 h-full"
         style={{
           borderRadius: rightPanelTab === "visuals" ? "0px" : "12px",
-          borderWidth: "1px",
+          borderWidth: rightPanelTab === "visuals" ? "0px" : "1px",
           borderColor: "#cbd5e1",
           marginLeft: "0px",
           paddingTop: "0px",
@@ -2968,13 +2968,14 @@ export function BulkPayment({
           paddingBottom: "0px",
         }}
       >
-        {/* Interactive Top bar with title, 📋 toggle button, tabs, and general actions */}
+        {/* ANALYSIS owns its own table header; the shared selector bar is removed. */}
+        {rightPanelTab !== "visuals" && (
         <div
           className="px-3 border-b border-slate-200/80 flex flex-row items-center justify-between w-full gap-3 shrink-0 select-none box-border"
           style={{
-            height: rightPanelTab === "visuals" ? "46px" : "73px",
-            minHeight: rightPanelTab === "visuals" ? "46px" : "73px",
-            maxHeight: rightPanelTab === "visuals" ? "46px" : "73px",
+            height: "73px",
+            minHeight: "73px",
+            maxHeight: "73px",
             backgroundColor:
               "color-mix(in srgb, var(--primary) 5%, var(--card, #fff))",
           }}
@@ -3247,6 +3248,7 @@ export function BulkPayment({
             </DropdownMenu>
           </div>
         </div>
+        )}
 
         {/* Dynamic Display based on empty status & current selected tab */}
         {displayBankExportData.length === 0 ? (
@@ -3919,6 +3921,18 @@ export function BulkPayment({
                       searchTerm={analysSearchTerm}
                       onSearchTermChange={setAnalysSearchTerm}
                       onSelectedBusinessChange={setAnalysSelectedBusiness}
+                      searchVisible={analysSearchVisible}
+                      onSearchVisibleChange={setAnalysSearchVisible}
+                      onResetFilters={() => {
+                        setAnalysSelectedBusiness(
+                          ALL_ANALYS_BUSINESS_UNITS,
+                        );
+                        setAnalysSearchTerm("");
+                      }}
+                      onViewChange={(view) => {
+                        setRightPanelTab(view);
+                        localStorage.setItem("bulk_payment_right_tab", view);
+                      }}
                     />
                   )}
                 </motion.div>

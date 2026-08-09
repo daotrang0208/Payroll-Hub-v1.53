@@ -1,7 +1,24 @@
 import { useMemo } from "react";
-import { ChevronDown, LayoutGrid } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  RefreshCw,
+  Search,
+  Settings,
+  Table2,
+  Scale,
+  X,
+} from "lucide-react";
 import { DataTable, type Column } from "../../../components/DataTable";
 import { type BulkPaymentAnalyticsResult } from "../../../lib/utils/bulk-payment-analytics";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
 
 interface BulkPaymentAnalyticsProps {
   analytics: BulkPaymentAnalyticsResult;
@@ -10,6 +27,10 @@ interface BulkPaymentAnalyticsProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onSelectedBusinessChange: (value: string) => void;
+  searchVisible: boolean;
+  onSearchVisibleChange: (visible: boolean) => void;
+  onResetFilters: () => void;
+  onViewChange: (view: "table" | "reconcile") => void;
 }
 
 const CONTEXT_GROUP = "Thông tin kỳ theo dõi";
@@ -204,6 +225,10 @@ export function BulkPaymentAnalytics({
   searchTerm,
   onSearchTermChange,
   onSelectedBusinessChange,
+  searchVisible,
+  onSearchVisibleChange,
+  onResetFilters,
+  onViewChange,
 }: BulkPaymentAnalyticsProps) {
   const effectiveSelectedBusiness =
     selectedBusiness === allBusinessUnitsValue ||
@@ -253,25 +278,50 @@ export function BulkPaymentAnalytics({
 
   return (
     <div className="unified-table-frame flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
-      <div className="unified-table-frame-header flex h-[46px] min-h-[46px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] px-3 py-1">
+      <div className="unified-table-frame-header flex h-[54px] min-h-[54px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] px-3 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm">
-            <LayoutGrid className="h-4 w-4" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm">
+            <Activity className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-primary">
-              ANALYS
+              ANALYSIS
             </h2>
             <p
-              className="mt-0.5 max-w-[min(66vw,760px)] truncate text-[8.5px] font-semibold text-slate-500"
-              title={`Kỳ ${analytics.currentPeriod}: thanh toán ${formatAmount(periodSummary.paid)} cho HOLD của ${periodSummary.paidOccurrenceMonths.size} tháng phát sinh · CANCEL ${formatAmount(periodSummary.cancel)} · còn dư ${formatAmount(periodSummary.remaining)}`}
+              className="mt-0.5 max-w-[min(46vw,620px)] truncate text-[8.5px] font-semibold text-slate-500"
+              title={`Theo dõi vòng đời HOLD · Kỳ ${analytics.currentPeriod} · ${filteredRows.length} dòng · Số dư ${formatAmount(periodSummary.remaining)}`}
             >
-              Kỳ {analytics.currentPeriod}: thanh toán {formatAmount(periodSummary.paid)} cho HOLD của {periodSummary.paidOccurrenceMonths.size} tháng phát sinh · CANCEL {formatAmount(periodSummary.cancel)} · còn dư {formatAmount(periodSummary.remaining)}
+              Vòng đời HOLD · Kỳ {analytics.currentPeriod} · {filteredRows.length} dòng · Số dư {formatAmount(periodSummary.remaining)}
             </p>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+          {searchVisible && (
+            <div className="relative hidden w-[clamp(150px,18vw,240px)] min-w-0 sm:block">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                autoFocus
+                value={searchTerm}
+                onChange={(event) => onSearchTermChange(event.target.value)}
+                className="h-7 w-full rounded-full border border-primary/20 bg-white pl-8 pr-8 text-[9px] font-semibold text-slate-700 outline-none placeholder:text-slate-400 hover:border-primary/40 focus:border-primary"
+                placeholder="Tìm BU hoặc tháng…"
+                aria-label="Tìm kiếm trong bảng ANALYSIS"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  onSearchTermChange("");
+                  onSearchVisibleChange(false);
+                }}
+                className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-primary/[0.08] hover:text-primary"
+                title="Đóng tìm kiếm"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
           <label
             htmlFor="analys-business-filter"
             className="hidden text-[7px] font-extrabold uppercase tracking-[0.12em] text-slate-500 sm:block"
@@ -295,6 +345,53 @@ export function BulkPaymentAnalytics({
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
           </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-white text-slate-600 shadow-2xs transition-colors hover:border-primary/40 hover:bg-primary/[0.05] hover:text-primary"
+                title="Cài đặt bảng ANALYSIS"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel className="px-2 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                Công cụ ANALYSIS
+              </DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => onSearchVisibleChange(!searchVisible)}
+              >
+                <Search className="h-4 w-4 shrink-0 text-primary" />
+                <span>{searchVisible ? "Ẩn tìm kiếm" : "Tìm kiếm"}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onResetFilters}>
+                <RefreshCw className="h-4 w-4 shrink-0 text-primary" />
+                <span>Đặt lại bộ lọc</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  window.dispatchEvent(new Event("open-ui-settings"))
+                }
+              >
+                <Settings className="h-4 w-4 shrink-0 text-slate-500" />
+                <span>Cài đặt giao diện</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="px-2 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                Chuyển bảng
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onViewChange("table")}>
+                <Table2 className="h-4 w-4 shrink-0 text-slate-600" />
+                <span>Transaction</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onViewChange("reconcile")}>
+                <Scale className="h-4 w-4 shrink-0 text-sky-600" />
+                <span>Đối soát</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
