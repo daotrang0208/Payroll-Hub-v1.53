@@ -7,6 +7,7 @@ import {
   Settings,
   Table2,
   Scale,
+  BarChart2,
   X,
 } from "lucide-react";
 import { DataTable, type Column } from "../../../components/DataTable";
@@ -75,6 +76,8 @@ const SUMMARY_COLUMNS: Column[] = [
     align: "left",
     cellClassName: "font-extrabold text-slate-700",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
   {
     key: "Tháng HOLD",
@@ -148,6 +151,8 @@ const SUMMARY_COLUMNS: Column[] = [
     align: "center",
     cellClassName: "font-bold text-primary",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
   {
     key: "CANCEL tại kỳ",
@@ -185,6 +190,8 @@ const SUMMARY_COLUMNS: Column[] = [
     align: "left",
     cellClassName: "font-semibold text-primary",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
   {
     key: "Số dư HOLD còn lại",
@@ -207,6 +214,8 @@ const SUMMARY_COLUMNS: Column[] = [
     width: 166,
     align: "left",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
   {
     key: "Trạng thái HOLD",
@@ -218,6 +227,8 @@ const SUMMARY_COLUMNS: Column[] = [
     align: "left",
     cellClassName: "font-bold text-slate-700",
     readOnly: true,
+    showGrandTotal: false,
+    footerClassName: "!text-transparent",
   },
 ];
 
@@ -286,66 +297,72 @@ export function BulkPaymentAnalytics({
 
   return (
     <div className="analysis-table-frame unified-table-frame flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--card)] text-[var(--card-foreground)]">
-      <div className="unified-table-frame-header flex h-[54px] min-h-[54px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] px-3 py-1.5">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+      <div className="unified-table-frame-header flex h-[54px] min-h-[54px] shrink-0 items-center justify-between gap-3 bg-primary/[0.035] p-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
           <button
             type="button"
             onClick={onToggleBulkPaymentCard}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-2xs transition-all active:scale-95 ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all cursor-pointer active:scale-95 border ${
               isBulkPaymentCardVisible
-                ? "border-primary/20 bg-white text-primary hover:bg-primary/[0.05]"
-                : "border-primary bg-primary text-white hover:brightness-95"
+                ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                : "bg-primary text-white border-primary shadow-xs hover:brightness-90"
             }`}
-            title={
-              isBulkPaymentCardVisible
-                ? "Ẩn card Bulk Payment"
-                : "Hiện card Bulk Payment"
-            }
-            aria-label={
-              isBulkPaymentCardVisible
-                ? "Ẩn card Bulk Payment"
-                : "Hiện card Bulk Payment"
-            }
-            aria-pressed={isBulkPaymentCardVisible}
+            title={isBulkPaymentCardVisible ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"}
+            aria-label={isBulkPaymentCardVisible ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"}
           >
-            <LayoutDashboard className="h-4 w-4" />
+            <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
           </button>
-          <div className="min-w-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-5 items-center gap-2 text-[12px] font-black uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary/80"
-                  title="Chuyển bảng"
-                >
-                  <span>ANALYSIS</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuLabel className="px-2 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
-                  Chuyển bảng
-                </DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => onViewChange("table")}>
-                  <Table2 className="h-4 w-4 shrink-0 text-slate-600" />
-                  <span>Transaction</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onViewChange("reconcile")}>
-                  <Scale className="h-4 w-4 shrink-0 text-sky-600" />
-                  <span>Đối soát</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <p
-              className="mt-0.5 max-w-[min(46vw,620px)] truncate text-[8.5px] font-semibold text-slate-500"
-              title={`Theo dõi vòng đời HOLD · Kỳ ${analytics.currentPeriod} · ${filteredRows.length} dòng · Số dư ${formatAmount(periodSummary.remaining)}`}
-            >
-              Vòng đời HOLD · Kỳ {analytics.currentPeriod} · {filteredRows.length} dòng · Số dư {formatAmount(periodSummary.remaining)}
-            </p>
-          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 bg-transparent py-1 px-1.5 text-primary hover:bg-primary/[0.05] transition-all active:scale-95 cursor-pointer select-none border-none shadow-none outline-none rounded-lg"
+                title="Chuyển bảng"
+              >
+                <span className="text-[12px] font-black uppercase tracking-[0.18em]">
+                  ANALYSIS
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl p-1 z-50">
+              <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                CHUYỂN BÀNG
+              </DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => onViewChange("table")}
+                className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <Table2 className="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-300" />
+                <span>Transaction</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onViewChange("reconcile")}
+                className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <Scale className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                <span>Đối soát</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onViewChange("visuals")}
+                className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold bg-primary/10 text-primary rounded-lg cursor-pointer"
+              >
+                <BarChart2 className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Analysis</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <p
+            className="mt-0.5 max-w-[min(46vw,620px)] truncate text-[8.5px] font-semibold text-slate-500"
+            title={`Theo dõi vòng đời HOLD · Kỳ ${analytics.currentPeriod} · ${filteredRows.length} dòng · Số dư ${formatAmount(periodSummary.remaining)}`}
+          >
+            Vòng đời HOLD · Kỳ {analytics.currentPeriod} · {filteredRows.length} dòng · Số dư {formatAmount(periodSummary.remaining)}
+          </p>
         </div>
 
-        <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 pr-3">
           {searchVisible && (
             <div className="relative hidden w-[clamp(150px,18vw,240px)] min-w-0 sm:block">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -371,22 +388,23 @@ export function BulkPaymentAnalytics({
             </div>
           )}
 
-          <div className="relative">
+          <div className="relative py-0 flex items-center">
             <select
               id="analys-business-filter"
               value={effectiveSelectedBusiness}
               onChange={(event) => onSelectedBusinessChange(event.target.value)}
-              className="h-[27px] w-[116px] appearance-none rounded-full border border-primary/25 bg-[var(--card)] pl-2.5 pr-6 text-[10px] font-extrabold uppercase leading-none text-[var(--card-foreground)] outline-none transition-colors hover:border-primary/45 focus:border-primary"
+              className="h-[26px] w-auto min-w-[70px] max-w-[170px] appearance-none rounded-none border-0 bg-transparent pl-1 pr-4 text-[12px] font-extrabold uppercase leading-[14px] text-[var(--card-foreground)] outline-none transition-colors hover:text-primary cursor-pointer shadow-none"
+              style={{ fontSize: "12px", backgroundColor: "transparent" }}
               title="Chọn BU trên bảng ANALYSIS"
             >
-              <option value={allBusinessUnitsValue}>Tất cả BU</option>
+              <option value={allBusinessUnitsValue} className="bg-[var(--card,#fff)] text-[var(--card-foreground,#000)] text-[12px]">Tất cả BU</option>
               {analytics.businessUnits.map((business) => (
-                <option key={business} value={business}>
+                <option key={business} value={business} className="bg-[var(--card,#fff)] text-[var(--card-foreground,#000)] text-[12px]">
                   {business}
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+            <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
           </div>
 
           <DropdownMenu>
@@ -437,7 +455,7 @@ export function BulkPaymentAnalytics({
           </DropdownMenu>
         </div>
       </div>
-      <div className="analysis-table-region min-h-0 flex-1 overflow-hidden bg-[var(--card)]">
+      <div className="analysis-table-region min-h-0 flex-1 overflow-hidden bg-[var(--card)] p-0">
         <DataTable
           key={`${analytics.currentPeriod}|${effectiveSelectedBusiness}`}
           columns={SUMMARY_COLUMNS}
@@ -446,7 +464,7 @@ export function BulkPaymentAnalytics({
           externalSearchTerm={searchTerm}
           onExternalSearchChange={onSearchTermChange}
           storageKey="analys_hold_lifecycle_v9"
-          className="analysis-data-table"
+          className="analysis-data-table !p-0"
           showFooter={true}
           showPagination={true}
           defaultItemsPerPage={50}
