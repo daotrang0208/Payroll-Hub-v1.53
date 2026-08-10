@@ -36,6 +36,8 @@ import {
   Sparkles,
   Layers,
   Table,
+  Table2,
+  BarChart2,
   Info,
   X,
   Scale,
@@ -2046,9 +2048,31 @@ export function BulkPayment({
 
                     <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col gap-3">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <span className="font-extrabold text-slate-900 font-sans text-[10px] uppercase tracking-wider">
-                          {selectedBUGroup === "ALL" ? "All BU" : `${selectedBUGroup} GROUP`}
-                        </span>
+                        <div className="relative flex items-center pr-2">
+                          <select
+                            value={selectedBUGroup}
+                            onChange={(e) => setSelectedBUGroup(e.target.value)}
+                            className="appearance-none bg-transparent pl-0 pr-6 py-0.5 font-extrabold text-slate-900 font-sans text-[11px] uppercase tracking-wider cursor-pointer focus:outline-none"
+                          >
+                            {["ALL", "AHN", "AHP", "ATH", "ATN", "APT", "Other"].map((biz) => {
+                              const isAll = biz === "ALL";
+                              const targetBUs = ["AHN", "AHP", "ATH", "ATN", "APT", "Other"];
+                              const sheet1Val = isAll
+                                ? targetBUs.reduce((sum, b) => sum + (dynamicReportStats.sheet1Totals[b] || 0), 0)
+                                : (dynamicReportStats.sheet1Totals[biz] || 0);
+                              const holdAddItems = isAll
+                                ? (dynamicReportStats.holdAddItems || [])
+                                : (dynamicReportStats.holdAddItems || []).filter((i) => i.biz === biz);
+                              const hasData = sheet1Val !== 0 || holdAddItems.length > 0;
+                              return (
+                                <option key={biz} value={biz} className="font-semibold text-[11px] text-slate-800 bg-white">
+                                  {isAll ? "ALL BU" : `${biz.toUpperCase()} GROUP`}{hasData ? "" : " (TRỐNG)"}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-600 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                         <button
                           onClick={() => {
                             const biz = selectedBUGroup;
@@ -2097,33 +2121,6 @@ export function BulkPayment({
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
-                      </div>
-
-                      {/* Dropdown Select BU */}
-                      <div className="relative">
-                        <select
-                          value={selectedBUGroup}
-                          onChange={(e) => setSelectedBUGroup(e.target.value)}
-                          className="w-full h-8 pl-3 pr-8 text-[10px] font-extrabold uppercase tracking-widest text-slate-700 bg-white border border-slate-300 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-400/30 transition-all shadow-3xs"
-                        >
-                          {["ALL", "AHN", "AHP", "ATH", "ATN", "APT", "Other"].map((biz) => {
-                            const isAll = biz === "ALL";
-                            const targetBUs = ["AHN", "AHP", "ATH", "ATN", "APT", "Other"];
-                            const sheet1Val = isAll
-                              ? targetBUs.reduce((sum, b) => sum + (dynamicReportStats.sheet1Totals[b] || 0), 0)
-                              : (dynamicReportStats.sheet1Totals[biz] || 0);
-                            const holdAddItems = isAll
-                              ? (dynamicReportStats.holdAddItems || [])
-                              : (dynamicReportStats.holdAddItems || []).filter((i) => i.biz === biz);
-                            const hasData = sheet1Val !== 0 || holdAddItems.length > 0;
-                            return (
-                              <option key={biz} value={biz} className="font-semibold text-[10.5px] text-slate-800 bg-white">
-                                {isAll ? "All BU" : `${biz.toUpperCase()} GROUP`}{hasData ? "" : " (TRỐNG)"}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
 
                       {/* Display the active group content */}
@@ -2981,73 +2978,86 @@ export function BulkPayment({
               "color-mix(in srgb, var(--primary) 5%, var(--card, #fff))",
           }}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
+              type="button"
               onClick={() => setShowLeftCard(!showLeftCard)}
-              className={`w-7 h-7 rounded-full transition-all cursor-pointer flex items-center justify-center active:scale-95 shadow-2xs ${
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all cursor-pointer active:scale-95 border ${
                 showLeftCard
-                  ? "bg-[var(--card,#fff)] text-primary border border-primary/15 hover:bg-primary/[0.05]"
-                  : "bg-primary text-white border border-primary shadow-xs hover:brightness-90"
+                  ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                  : "bg-primary text-white border-primary shadow-xs hover:brightness-90"
               }`}
-              title={
-                showLeftCard ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"
-              }
+              title={showLeftCard ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"}
+              aria-label={showLeftCard ? "Ẩn bảng điều khiển" : "Hiện bảng điều khiển"}
             >
-              <LayoutDashboard className="w-4 h-4 shrink-0" />
+              <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
             </button>
 
-            {displayBankExportData.length > 0 && (
-              <div
-                className={`flex shrink-0 ${
-                  rightPanelTab === "visuals"
-                    ? "flex-col items-start gap-0"
-                    : "ml-1 items-center"
-                }`}
-              >
-                <div className="flex items-center relative">
-                  <select
-                    value={rightPanelTab}
-                    onChange={(e) => {
-                      setRightPanelTab(e.target.value as any);
-                      localStorage.setItem(
-                        "bulk_payment_right_tab",
-                        e.target.value,
-                      );
-                    }}
-                    className={`title-select-plain appearance-none bg-transparent hover:bg-transparent border-0 rounded-none pl-1 pr-6 py-1 font-extrabold uppercase text-slate-700 focus:outline-none transition-all cursor-pointer shadow-none ${
-                      rightPanelTab === "visuals"
-                        ? "h-6 text-[12px] tracking-[0.14em]"
-                        : "h-7 text-[11px] tracking-widest"
-                    }`}
-                  >
-                    <option 
-                      value="table"
-                      className="font-semibold text-[10px] text-slate-800 bg-white"
-                    >
-                      TRANSACTION
-                    </option>
-                    <option 
-                      value="reconcile"
-                      className="font-semibold text-[10px] text-slate-800 bg-white"
-                    >
-                      ĐỐI SOÁT                  
-                    </option>
-                    <option 
-                      value="visuals"
-                      className="font-semibold text-[10px] text-slate-800 bg-white"
-                    >
-                      ANALYS
-                    </option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-600 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-                {rightPanelTab === "visuals" && (
-                  <span className="hidden max-w-[250px] truncate pl-1 text-[7px] font-bold uppercase tracking-[0.1em] text-slate-500 xl:block">
-                    Theo dõi HOLD theo tháng phát sinh
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 bg-transparent py-1 px-1.5 text-primary hover:bg-primary/[0.05] transition-all active:scale-95 cursor-pointer select-none border-none shadow-none outline-none rounded-lg"
+                  title="Chuyển bảng"
+                >
+                  <span className="text-[12px] font-black uppercase tracking-[0.18em]">
+                    {rightPanelTab === "table"
+                      ? "TRANSACTION"
+                      : rightPanelTab === "reconcile"
+                      ? "ĐỐI SOÁT"
+                      : "ANALYSIS"}
                   </span>
-                )}
-              </div>
-            )}
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl p-1 z-50">
+                <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  CHUYỂN BÀNG
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setRightPanelTab("table");
+                    localStorage.setItem("bulk_payment_right_tab", "table");
+                  }}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-colors ${
+                    rightPanelTab === "table"
+                      ? "bg-primary/10 text-primary font-extrabold"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <Table2 className="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-300" />
+                  <span>Transaction</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setRightPanelTab("reconcile");
+                    localStorage.setItem("bulk_payment_right_tab", "reconcile");
+                  }}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-colors ${
+                    rightPanelTab === "reconcile"
+                      ? "bg-primary/10 text-primary font-extrabold"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <Scale className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                  <span>Đối soát</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setRightPanelTab("visuals");
+                    localStorage.setItem("bulk_payment_right_tab", "visuals");
+                  }}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-colors ${
+                    rightPanelTab === "visuals"
+                      ? "bg-primary/10 text-primary font-extrabold"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <BarChart2 className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Analysis</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* General Summary Stats - Compacted */}
             {displayBankExportData.length > 0 && rightPanelTab === "table" && (
