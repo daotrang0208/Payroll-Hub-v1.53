@@ -103,8 +103,13 @@ function normalizeColumnRuleKey(columnKey: string): string {
 export function isNonSummableTextColumn(columnKey: string): boolean {
   const normalized = normalizeColumnRuleKey(columnKey);
   return (
-    normalized.includes("THANG BAO CAO") ||
+    normalized === "THANG" ||
     normalized.includes("THANG PHAT SINH") ||
+    normalized.includes("THANG BAO CAO") ||
+    normalized.includes("THANG HOLD") ||
+    normalized.includes("THANG THANH TOAN") ||
+    normalized.includes("THANH TOAN VAO THANG") ||
+    normalized.includes("CAC THANG") ||
     normalized.includes("KY BAO CAO") ||
     normalized.includes("KY DANG THEO DOI") ||
     normalized.includes("REPORTING MONTH") ||
