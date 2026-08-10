@@ -2849,7 +2849,7 @@ export function HoldAddDashboard() {
                             
                             const subtotalRow = (
                               <tr key={`subtotal-${mk}-${bu}`} className="!bg-[#FAF9F6]/70 dark:!bg-slate-800/30 font-bold border-y-2 border-[#e7dbdc] dark:border-slate-800">
-                                <td colSpan={3} className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-2 text-right text-slate-700 dark:text-slate-300 font-sans uppercase tracking-wider text-[11px]">
+                                <td colSpan={3} className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-2 text-center text-slate-700 dark:text-slate-300 font-sans uppercase tracking-wider text-[11px]">
                                   TỔNG BU - {bu}
                                 </td>
                                 <td className="border-r border-b border-[#e7dbdc] dark:border-slate-800 p-2 text-right text-slate-700 dark:text-slate-200 font-mono text-xs whitespace-nowrap">
