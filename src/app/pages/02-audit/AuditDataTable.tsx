@@ -21,6 +21,8 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Table2,
   Wrench,
   Eraser,
@@ -466,7 +468,7 @@ const DataRow = React.memo(
             className={`text-accent whitespace-nowrap border-b border-r border-[var(--grid-line-color,#E2E8F0)] ${isSelected ? "bg-accent/10" : ""}`}
             style={{
               padding: "var(--table-padding, 1rem 1.5rem)",
-              boxShadow: isRowActive ? "inset 4px 0 0 theme(colors.accent.DEFAULT/0.4)" : undefined,
+              boxShadow: isRowActive ? "inset 3px 0 0 var(--primary, #0284c7)" : undefined,
             }}
           >
             <div className="flex items-center justify-center">
@@ -524,7 +526,7 @@ const DataRow = React.memo(
                 minWidth: widthStyle,
                 boxShadow:
                   !selectable && isRowActive && cIdx === 0
-                    ? "inset 4px 0 0 theme(colors.accent.DEFAULT/0.4)"
+                    ? "inset 3px 0 0 var(--primary, #0284c7)"
                     : undefined,
               }}
             >
@@ -1172,12 +1174,6 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
 
     // Keyboard shortcuts are handled in the main listener below
 
-    useEffect(() => {
-      if (onFilteredDataChange) {
-        onFilteredDataChange(filteredAndSortedData);
-      }
-    }, [filteredAndSortedData, onFilteredDataChange]);
-
     const totalPages =
       itemsPerPage === Infinity
         ? 1
@@ -1351,11 +1347,16 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     const isStale = deferredPaginatedData !== paginatedData;
 
     // Notify filtered data change
+    const onFilteredDataChangeRef = useRef(onFilteredDataChange);
     useEffect(() => {
-      if (onFilteredDataChange) {
-        onFilteredDataChange(filteredAndSortedData);
+      onFilteredDataChangeRef.current = onFilteredDataChange;
+    });
+
+    useEffect(() => {
+      if (onFilteredDataChangeRef.current) {
+        onFilteredDataChangeRef.current(filteredAndSortedData);
       }
-    }, [filteredAndSortedData, onFilteredDataChange]);
+    }, [filteredAndSortedData]);
 
     // Notify selection change
     useEffect(() => {
@@ -2801,14 +2802,15 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
             </table>
           </div>
 
-          {/* Footer — Floating Card Style mimicking payment page */}
+          {/* Footer — Redesigned Modern Control & Pagination Bar */}
           <div
-            className="flex items-center justify-between shrink-0 z-40 relative mt-0 border-0 shadow-none rounded-none table-footer-pagination"
-            style={{ paddingTop: "0px", paddingBottom: "0px", height: "35.9896px", minHeight: "35.9896px", backgroundColor: "var(--table-header-bg, var(--secondary, #FAF9F6))" }}
+            className="flex items-center justify-between shrink-0 z-30 relative border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-xs px-3.5 py-1.5 min-h-[38px] select-none text-xs text-slate-600 dark:text-slate-300 table-footer-pagination"
           >
-            <div className="flex items-center gap-3 px-3" style={{ height: "30px", paddingLeft: "0px", paddingRight: "0px" }}>
-              <div className="flex items-center gap-1.5 hidden md:flex">
-                <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap ml-2">
+            {/* Left: Rows Per Page & Total Row Count & Tools */}
+            <div className="flex items-center gap-3">
+              {/* Page Size Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
                   Hiển thị:
                 </span>
                 <Select
@@ -2819,36 +2821,48 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                     scrollContainerRef.current?.scrollTo({ top: 0 });
                   }}
                 >
-                  <SelectTrigger className="h-[24px] px-2 text-[11px] font-bold font-sans normal-case text-slate-700 border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs w-[95px]" style={{ height: "24px" }}>
-                    <SelectValue placeholder="Chọn..." className="font-sans normal-case" />
+                  <SelectTrigger
+                    className="h-7 px-2.5 text-[11px] font-bold text-slate-800 dark:text-slate-200 border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-3xs rounded-full w-[95px]"
+                  >
+                    <SelectValue placeholder="Chọn..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[var(--popover)] border-border z-[99999] opacity-100 w-[95px] min-w-[80px] font-sans">
-                    <SelectItem value="50" className="text-[11px] font-medium font-sans normal-case">50 dòng</SelectItem>
-                    <SelectItem value="100" className="text-[11px] font-medium font-sans normal-case">100 dòng</SelectItem>
-                    <SelectItem value="all" className="text-[11px] font-medium font-sans normal-case">Tất cả</SelectItem>
+                  <SelectContent className="bg-popover dark:bg-slate-800 border-border z-[99999] w-[100px] min-w-[80px]">
+                    <SelectItem value="10" className="text-[11px] font-medium">10 dòng</SelectItem>
+                    <SelectItem value="20" className="text-[11px] font-medium">20 dòng</SelectItem>
+                    <SelectItem value="50" className="text-[11px] font-medium">50 dòng</SelectItem>
+                    <SelectItem value="100" className="text-[11px] font-medium">100 dòng</SelectItem>
+                    <SelectItem value="all" className="text-[11px] font-medium">Tất cả</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div 
-                className="flex items-center gap-1.5 hidden md:flex border-l border-slate-100 pl-3"
-                style={{ height: "20px" }}
-              >
+              {/* Total Rows Count */}
+              <div className="flex items-center text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                <span className="mr-1 text-slate-300 dark:text-slate-600">•</span>
+                <span>Tổng số</span>
+                <span className="font-extrabold text-slate-800 dark:text-slate-200 mx-1 font-mono">
+                  {filteredAndSortedData.length.toLocaleString()}
+                </span>
+                <span>dòng</span>
+              </div>
+
+              {/* Toolbar Actions */}
+              <div className="hidden md:flex items-center gap-1.5 border-l border-slate-200/80 dark:border-slate-800 pl-3">
+                {/* Search trigger */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
-                      className={`flex items-center justify-center rounded-full border transition-all shadow-sm ${
+                      className={`flex items-center justify-center rounded-full border transition-all shadow-3xs w-6 h-6 ${
                         searchTerm
                           ? "bg-amber-500 text-white border-amber-600 font-bold"
-                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900"
+                          : "bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
                       }`}
-                      style={{ height: "24px", width: "24px" }}
                       title="Tìm kiếm dữ liệu"
                     >
                       <Search className="w-3.5 h-3.5" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-72 p-2 bg-popover border-border shadow-2xl rounded-xl z-[99999]" align="end">
+                  <PopoverContent className="w-72 p-2 bg-popover border-border shadow-2xl rounded-xl z-[99999]" align="start">
                     <div className="flex items-center gap-2">
                       <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                       <Input
@@ -2871,17 +2885,17 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                   </PopoverContent>
                 </Popover>
 
+                {/* Column Visibility Settings */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="flex items-center justify-center rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-all shadow-sm"
+                      className="flex items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all shadow-3xs w-6 h-6"
                       title="Chọn cột hiển thị (Cài đặt)"
-                      style={{ height: "24px", width: "24px" }}
                     >
                       <Settings2 className="w-3.5 h-3.5" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48 max-h-[300px] overflow-y-auto bg-popover dark:bg-[var(--card)] opacity-100 z-[99999] border-border shadow-2xl">
+                  <DropdownMenuContent align="start" className="w-52 max-h-[300px] overflow-y-auto bg-popover dark:bg-slate-800 z-[99999] border-border shadow-2xl">
                     <DropdownMenuLabel className="text-xs font-bold text-slate-500 uppercase">Cột hiển thị</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -2894,9 +2908,9 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                           setHiddenColumns(new Set());
                         }
                       }}
-                      className="flex items-center justify-between text-sm font-bold cursor-pointer text-primary"
+                      className="flex items-center justify-between text-xs font-bold cursor-pointer text-primary"
                     >
-                      <span>Chọn tất cả</span>
+                      <span>{hiddenColumns.size === 0 ? "Ẩn tất cả" : "Chọn tất cả"}</span>
                       {hiddenColumns.size === 0 ? (
                         <Eye className="w-3.5 h-3.5 text-primary shrink-0" />
                       ) : (
@@ -2911,7 +2925,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                           e.preventDefault();
                           toggleColumn(col.key);
                         }}
-                        className="flex items-center justify-between text-sm cursor-pointer"
+                        className="flex items-center justify-between text-xs cursor-pointer"
                       >
                         <span className="truncate pr-2">{col.label}</span>
                         {!hiddenColumns.has(col.key) ? (
@@ -2925,7 +2939,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                 </DropdownMenu>
 
                 <SaveStatusCard 
-                  className="!px-1.5 !py-0.5 !rounded bg-slate-50 border border-slate-200/80 shadow-none gap-1 ml-1 w-[135px] justify-center"
+                  className="!px-2 !py-0.5 !rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-3xs gap-1 w-[130px] justify-center"
                   textStyle={{
                     fontFamily: "inherit",
                     fontWeight: "600",
@@ -2939,103 +2953,106 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                   }}
                 />
               </div>
-
-
             </div>
 
-            {/* Pagination Controls - Consolidated into a single dropdown icon/menu */}
-            <div className="flex items-center pr-3">
+            {/* Right: Tactile Pagination Controls */}
+            <div className="flex items-center gap-1.5">
+              {/* First Page */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => {
+                  setCurrentPage(1);
+                  scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="flex items-center justify-center w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-3xs active:scale-95 cursor-pointer"
+                title="Trang đầu"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Previous Page */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => {
+                  setCurrentPage((p) => Math.max(1, p - 1));
+                  scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="flex items-center justify-center w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-3xs active:scale-95 cursor-pointer"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Page Indicator & Quick Jump Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex items-center gap-1.5 px-3 h-[24px] rounded-md border border-border bg-white text-[11px] font-bold text-foreground hover:bg-slate-50 transition-colors shadow-sm cursor-pointer select-none"
+                    className="flex items-center gap-1 px-2.5 h-7 rounded-full border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-3xs cursor-pointer select-none"
+                    title="Chọn trang nhanh"
                   >
-                    <span style={{ fontSize: "9px" }}>TRANG {currentPage} / {totalPages || 1}</span>
-                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                    <span className="font-sans uppercase tracking-wider text-[10.5px]">
+                      TRANG <span className="font-black text-slate-900 dark:text-white">{currentPage}</span> / {totalPages || 1}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 p-1 bg-card border-border z-[99999]">
-                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-wider text-muted-foreground px-2 py-1.5">
-                    Điều hướng trang
+                <DropdownMenuContent align="end" className="w-44 p-1 bg-popover dark:bg-slate-800 border-border z-[99999] shadow-xl">
+                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-wider text-muted-foreground px-2 py-1">
+                    Chuyển đến trang
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    disabled={currentPage === 1}
-                    onClick={() => {
-                      setCurrentPage(1);
-                      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="text-[11px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                    <span>Trang đầu</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={currentPage === 1}
-                    onClick={() => {
-                      setCurrentPage((p) => Math.max(1, p - 1));
-                      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="text-[11px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                    <span>Trang trước</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={currentPage >= totalPages || totalPages === 0}
-                    onClick={() => {
-                      setCurrentPage((p) => Math.min(totalPages, p + 1));
-                      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="text-[11px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                    <span>Trang sau</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={currentPage >= totalPages || totalPages === 0}
-                    onClick={() => {
-                      setCurrentPage(totalPages);
-                      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="text-[11px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                    <span>Trang cuối</span>
-                  </DropdownMenuItem>
-
-                  {totalPages > 1 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <div className="max-h-40 overflow-y-auto custom-scrollbar p-1">
-                        {Array.from({ length: Math.min(10, totalPages) }).map((_, idx) => {
-                          const pNum = idx + 1;
-                          return (
-                            <DropdownMenuItem
-                              key={pNum}
-                              onClick={() => {
-                                setCurrentPage(pNum);
-                                scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                              }}
-                              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-md cursor-pointer flex items-center justify-between ${
-                                currentPage === pNum ? "bg-primary/5 text-primary" : ""
-                              }`}
-                            >
-                              <span>Trang {pNum}</span>
-                              {currentPage === pNum && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                            </DropdownMenuItem>
-                          );
-                        })}
-                        {totalPages > 10 && (
-                          <div className="text-[8px] font-bold text-center text-muted-foreground py-1 uppercase tracking-wider">
-                            Và {totalPages - 10} trang khác
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  <div className="max-h-48 overflow-y-auto custom-scrollbar p-0.5 space-y-0.5">
+                    {Array.from({ length: Math.min(50, totalPages || 1) }).map((_, idx) => {
+                      const pNum = idx + 1;
+                      return (
+                        <DropdownMenuItem
+                          key={pNum}
+                          onClick={() => {
+                            setCurrentPage(pNum);
+                            scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md cursor-pointer flex items-center justify-between ${
+                            currentPage === pNum ? "bg-primary/10 text-primary" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          <span>Trang {pNum}</span>
+                          {currentPage === pNum && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Next Page */}
+              <button
+                type="button"
+                disabled={currentPage >= totalPages || totalPages === 0}
+                onClick={() => {
+                  setCurrentPage((p) => Math.min(totalPages, p + 1));
+                  scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="flex items-center justify-center w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-3xs active:scale-95 cursor-pointer"
+                title="Trang sau"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Last Page */}
+              <button
+                type="button"
+                disabled={currentPage >= totalPages || totalPages === 0}
+                onClick={() => {
+                  setCurrentPage(totalPages);
+                  scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="flex items-center justify-center w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-3xs active:scale-95 cursor-pointer"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
