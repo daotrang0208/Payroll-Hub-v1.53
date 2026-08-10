@@ -167,7 +167,15 @@ function parseMasterFileInWorker(
       if (String(event.data?.requestId || "") !== requestId) return;
       finish();
       if (event.data?.success) {
-        resolve(event.data.result as MasterWorkbookPayload);
+        let parsedResult = event.data.result;
+        if (typeof parsedResult === "string") {
+          try {
+            parsedResult = JSON.parse(parsedResult);
+          } catch (e) {
+            console.error("Failed to parse worker result", e);
+          }
+        }
+        resolve(parsedResult as MasterWorkbookPayload);
       } else {
         reject(
           new Error(event.data?.error || "Không thể xử lý file Master."),
