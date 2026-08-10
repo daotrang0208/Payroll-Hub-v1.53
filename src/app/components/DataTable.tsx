@@ -593,7 +593,7 @@ const DataRow = React.memo(
             className={`text-accent whitespace-nowrap border-b border-r ${borderClass || "border-[#e7dbdc]"} ${isSelected ? "bg-accent/10" : ""} ${stickyFirstColumn ? "sticky-col-selectable" : ""}`}
             style={{
               padding: "var(--table-padding, 0.4rem 0.6rem)",
-              boxShadow: isRowActive ? "inset 4px 0 0 theme(colors.accent.DEFAULT/0.4)" : undefined,
+              boxShadow: isRowActive ? "inset 3px 0 0 var(--primary, #0284c7)" : undefined,
               ...(stickyFirstColumn ? { left: 0 } : {})
             }}
           >
@@ -668,7 +668,7 @@ const DataRow = React.memo(
                 minWidth: widthStyle,
                 boxShadow:
                   !selectable && isRowActive && cIdx === 0
-                    ? "inset 4px 0 0 theme(colors.accent.DEFAULT/0.4)"
+                    ? "inset 3px 0 0 var(--primary, #0284c7)"
                     : undefined,
                 ...(stickyFirstColumn && cIdx === 0 ? {
                   left: (selectable ? 40 : 0) + (showRowNumber ? 50 : 0)
@@ -1453,9 +1453,11 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
       if (debouncedSearchTerm) {
         const lowerSearch = String(debouncedSearchTerm).trim().toLowerCase();
         const trimmedZeroSearch = lowerSearch.replace(/^0+/, "");
-        result = result.filter((row) =>
-          Object.values(row).some((val) => {
-            if (val == null || val === "") return false;
+        result = result.filter((row) => {
+          for (const key in row) {
+            if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+            const val = row[key];
+            if (val == null || val === "") continue;
             const str = String(val).toLowerCase();
             if (str.includes(lowerSearch)) return true;
             if (trimmedZeroSearch && str.includes(trimmedZeroSearch)) return true;
@@ -1463,10 +1465,9 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
             const formattedId = formatIdNumber(val).toLowerCase();
             if (formattedId && formattedId.includes(lowerSearch)) return true;
             if (trimmedZeroSearch && formattedId && formattedId.includes(trimmedZeroSearch)) return true;
-
-            return false;
-          }),
-        );
+          }
+          return false;
+        });
       }
 
       // Apply filters
@@ -1599,6 +1600,97 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [vsContainerWidth, setVsContainerWidth] = useState(1000);
 
+    // Defer heavy table re-render — user interactions stay responsive during data updates
+    const deferredPaginatedData = useDeferredValue(paginatedData);
+    const isStale = deferredPaginatedData !== paginatedData;
+
+    const footerTotals = useMemo(() => {
+      const totals: Record<string, number | null> = {};
+      if (!showFooter) return totals;
+
+      const colIsNumericList = columns.map((col) => {
+        const effectiveType = columnTypes[col.key] || col.type;
+        if (col.showGrandTotal === false) return false;
+        if (isProtectedNumericColumn(col.key)) return false;
+        if (isNonSummableTextColumn(col.key)) return false;
+        let colIsNumeric =
+          isChargeAmountColumn(col.key) ||
+          effectiveType === "number" ||
+          effectiveType === "currency" ||
+          effectiveType === "money" ||
+          col.showGrandTotal;
+
+        if (
+          !colIsNumeric &&
+          effectiveType !== "label" &&
+          effectiveType !== "date" &&
+          filteredAndSortedData.length > 0 &&
+          col.key !== "STT" &&
+          col.key !== "stt"
+        ) {
+          let numericCount = 0;
+          let totalValCount = 0;
+          const sampleSize = Math.min(20, filteredAndSortedData.length);
+          for (let i = 0; i < sampleSize; i++) {
+            const r = filteredAndSortedData[i];
+            if (r) {
+              const rawVal = r[col.key];
+              if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== "") {
+                totalValCount++;
+                if (looksLikeNumericValue(rawVal)) {
+                  numericCount++;
+                }
+              }
+            }
+          }
+          if (totalValCount > 0 && numericCount / totalValCount > 0.7) {
+            colIsNumeric = true;
+          }
+        }
+        return colIsNumeric;
+      });
+
+      columns.forEach((col, cIdx) => {
+        const colIsNumeric = colIsNumericList[cIdx];
+        if (colIsNumeric) {
+          totals[col.key] = filteredAndSortedData.reduce((sum, row) => {
+            if (row?._isTotalRow) return sum;
+            if (totalCalculationOverride) {
+              const override = totalCalculationOverride(row, col.key);
+              if (typeof override === "number" && Number.isFinite(override)) {
+                return sum + override;
+              }
+            }
+            const val = parseMoneyToNumber(row[col.key]);
+            return Number.isFinite(val) ? sum + val : sum;
+          }, 0);
+        } else {
+          totals[col.key] = null;
+        }
+      });
+      return totals;
+    }, [filteredAndSortedData, columns, columnTypes, showFooter, totalCalculationOverride]);
+
+    const columnTotals = useMemo(() => {
+      const totals: Record<string, number> = {};
+      const summableColumns = columns.filter((col) => {
+        const type = columnTypes[col.key] || col.type || "text";
+        return type === "number" || type === "currency" || type === "money";
+      });
+
+      if (summableColumns.length === 0) return totals;
+
+      for (const row of deferredPaginatedData) {
+        for (const col of summableColumns) {
+          const val = row[col.key];
+          if (val) {
+             totals[col.key] = (totals[col.key] || 0) + (parseMoneyToNumber(val) || 0);
+          }
+        }
+      }
+      return totals;
+    }, [deferredPaginatedData, columns, columnTypes]);
+
     // Track container width via ResizeObserver
     useEffect(() => {
       const el = scrollContainerRef.current;
@@ -1634,26 +1726,32 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
     const vsStartIndex = virtualItems.length > 0 ? virtualItems[0].index : 0;
     const vsEndIndex = virtualItems.length > 0 ? virtualItems[virtualItems.length - 1].index : 0;
 
-    // Defer heavy table re-render — user interactions stay responsive during data updates
-    const deferredPaginatedData = useDeferredValue(paginatedData);
-    const isStale = deferredPaginatedData !== paginatedData;
-
-    // Notify filtered data change
+    // Notify filtered data change (using ref to prevent re-render loop if parent passes inline callback)
+    const onFilteredDataChangeRef = useRef(onFilteredDataChange);
     useEffect(() => {
-      if (onFilteredDataChange) {
-        onFilteredDataChange(filteredAndSortedData);
+      onFilteredDataChangeRef.current = onFilteredDataChange;
+    });
+
+    useEffect(() => {
+      if (onFilteredDataChangeRef.current) {
+        onFilteredDataChangeRef.current(filteredAndSortedData);
       }
-    }, [filteredAndSortedData, onFilteredDataChange]);
+    }, [filteredAndSortedData]);
 
-    // Notify selection change
+    // Notify selection change (using ref to prevent re-render loop if parent passes inline callback)
+    const onSelectionChangeRef = useRef(onSelectionChange);
     useEffect(() => {
-      if (onSelectionChange) {
+      onSelectionChangeRef.current = onSelectionChange;
+    });
+
+    useEffect(() => {
+      if (onSelectionChangeRef.current) {
         const selectedRows = filteredAndSortedData.filter((row, idx) =>
           selectedRowIds.has(row.id || idx),
         );
-        onSelectionChange(selectedRows);
+        onSelectionChangeRef.current(selectedRows);
       }
-    }, [selectedRowIds, filteredAndSortedData, onSelectionChange]);
+    }, [selectedRowIds, filteredAndSortedData]);
 
     // Scroll active cell into view
     useEffect(() => {
@@ -3179,6 +3277,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                         const effectiveType = columnTypes[col.key] || col.type;
                         if (col.showGrandTotal === false) return false;
                         if (isProtectedNumericColumn(col.key)) return false;
+                        if (isNonSummableTextColumn(col.key)) return false;
                         let colIsNumeric =
                           isChargeAmountColumn(col.key) ||
                           effectiveType === "number" ||
@@ -3219,27 +3318,10 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                         const colIsNumeric =
                           col.showGrandTotal !== false &&
                           !isProtectedNumericColumn(col.key) &&
+                          !isNonSummableTextColumn(col.key) &&
                           (colIsNumericList[cIdx] ||
                             (col as any).showGrandTotal);
-                        const grandTotal = colIsNumeric
-                          ? filteredAndSortedData.reduce(
-                              (sum, row) => {
-                                if (row?._isTotalRow) return sum;
-                                if (totalCalculationOverride) {
-                                  const override = totalCalculationOverride(row, col.key);
-                                  if (
-                                    typeof override === "number" &&
-                                    Number.isFinite(override)
-                                  ) {
-                                    return sum + override;
-                                  }
-                                }
-                                const val = parseMoneyToNumber(row[col.key]);
-                                return Number.isFinite(val) ? sum + val : sum;
-                              },
-                              0,
-                            )
-                          : null;
+                        const grandTotal = footerTotals[col.key];
 
                         const colWidth = columnWidths[col.key] || col.width;
                         const widthStyle = colWidth
@@ -3274,10 +3356,10 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(
                             }}
                           >
                             {isFirstDataCol
-                              ? (colIsNumeric && grandTotal !== null
+                              ? (colIsNumeric && grandTotal != null
                                   ? `TỔNG: ${formatValue(grandTotal, col.type === "number" ? "number" : "currency")}`
                                   : `TỔNG CỘNG (${filteredAndSortedData.length} dòng)`)
-                              : (colIsNumeric && col.key !== "STT" && col.key !== "stt" && grandTotal !== null
+                              : (colIsNumeric && col.key !== "STT" && col.key !== "stt" && grandTotal != null
                                   ? formatValue(grandTotal, col.type === "number" ? "number" : "currency")
                                   : "")}
                           </td>
