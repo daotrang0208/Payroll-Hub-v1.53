@@ -162,7 +162,7 @@ if (typeof self !== "undefined") {
         targetFields,
         includeRows,
       );
-      self.postMessage({ requestId, success: true, result });
+      self.postMessage({ requestId, success: true, result: JSON.stringify(result) });
     } catch (error: any) {
       self.postMessage({
         requestId,
