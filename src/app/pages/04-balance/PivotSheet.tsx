@@ -105,6 +105,55 @@ export async function fetchGoogleSheetAsFile(url: string, name: string): Promise
 export function isMoneyColumn(col: string): boolean { return Boolean(col && col.toLowerCase().includes('money')); }
 export async function fetchWithBackoff(fn: any): Promise<any> { return await fn(); }
 
+type PivotGroupedData = Record<
+  string,
+  Record<string, Record<string, Record<string, number>>>
+>;
+
+function mergePivotGroupedData(
+  currentData: PivotGroupedData,
+  incomingData: PivotGroupedData,
+): PivotGroupedData {
+  const merged: PivotGroupedData = {};
+
+  [currentData, incomingData].forEach((source) => {
+    Object.entries(source || {}).forEach(([bu, l07Rows]) => {
+      if (!merged[bu]) merged[bu] = {};
+      Object.entries(l07Rows || {}).forEach(([l07, monthRows]) => {
+        if (!merged[bu][l07]) merged[bu][l07] = {};
+        Object.entries(monthRows || {}).forEach(([month, typeRows]) => {
+          if (!merged[bu][l07][month]) merged[bu][l07][month] = {};
+          Object.entries(typeRows || {}).forEach(([type, rawAmount]) => {
+            const amount = Number(rawAmount);
+            if (!Number.isFinite(amount)) return;
+            merged[bu][l07][month][type] =
+              (merged[bu][l07][month][type] || 0) + amount;
+          });
+        });
+      });
+    });
+  });
+
+  return merged;
+}
+
+function mergePivotTypeColumns(
+  currentColumns: string[],
+  incomingColumns: string[],
+): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  [...(currentColumns || []), ...(incomingColumns || [])].forEach((column) => {
+    const normalized = String(column || "").trim().toUpperCase();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    result.push(normalized);
+  });
+
+  return result;
+}
+
 // ==========================================
 // MAPPING DEFINITIONS & LOGIC FROM SPEC
 // ==========================================
@@ -330,10 +379,7 @@ export function PivotSheet() {
       const cached = localStorage.getItem("pivot_master_processed_data");
       if (cached) {
         const parsed = JSON.parse(cached);
-        const filter = localStorage.getItem("pivot_master_selected_month_filter") || "ALL";
-        if (parsed.filter === filter) {
-          return parsed.groupedData || {};
-        }
+        return parsed.groupedData || {};
       }
     } catch (e) {
       console.warn("Error reading pivot cache", e);
@@ -346,10 +392,7 @@ export function PivotSheet() {
       const cached = localStorage.getItem("pivot_master_processed_data");
       if (cached) {
         const parsed = JSON.parse(cached);
-        const filter = localStorage.getItem("pivot_master_selected_month_filter") || "ALL";
-        if (parsed.filter === filter) {
-          return parsed.typeColumns || [];
-        }
+        return parsed.typeColumns || [];
       }
     } catch {
       // ignore cache error
@@ -362,10 +405,7 @@ export function PivotSheet() {
       const cached = localStorage.getItem("pivot_master_processed_data");
       if (cached) {
         const parsed = JSON.parse(cached);
-        const filter = localStorage.getItem("pivot_master_selected_month_filter") || "ALL";
-        if (parsed.filter === filter) {
-          return parsed.diagnosticLogs || [];
-        }
+        return parsed.diagnosticLogs || [];
       }
     } catch {
       // ignore cache error
@@ -378,10 +418,7 @@ export function PivotSheet() {
       const cached = localStorage.getItem("pivot_master_processed_data");
       if (cached) {
         const parsed = JSON.parse(cached);
-        const filter = localStorage.getItem("pivot_master_selected_month_filter") || "ALL";
-        if (parsed.filter === filter) {
-          return parsed.sourceInfo || "";
-        }
+        return parsed.sourceInfo || "";
       }
     } catch {
       // ignore cache error
@@ -707,6 +744,24 @@ export function PivotSheet() {
     }
   }, [rowsPerPage]);
 
+  useEffect(() => {
+    const handlePivotDataUpdated = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      if (!detail.groupedData || typeof detail.groupedData !== "object") return;
+
+      setGroupedData(detail.groupedData);
+      setTypeColumns(Array.isArray(detail.typeColumns) ? detail.typeColumns : []);
+      setDiagnosticLogs(
+        Array.isArray(detail.diagnosticLogs) ? detail.diagnosticLogs : [],
+      );
+      _setSourceInfo(String(detail.sourceInfo || ""));
+    };
+
+    window.addEventListener("pivot-data-updated", handlePivotDataUpdated);
+    return () =>
+      window.removeEventListener("pivot-data-updated", handlePivotDataUpdated);
+  }, []);
+
   const processFileBuffers = useCallback(async (fileList: { name: string; bank?: string; buffer: ArrayBuffer; month: string }[]) => {
     const newGroupedData: Record<string, Record<string, Record<string, Record<string, number>>>> = {};
     const uniqueTypes = new Set<string>();
@@ -899,7 +954,7 @@ export function PivotSheet() {
     if (cachedStr) {
       try {
         const parsed = JSON.parse(cachedStr);
-        if (parsed.groupedData && Object.keys(parsed.groupedData).length > 0 && parsed.filter === selectedMonthFilter) {
+        if (parsed.groupedData && Object.keys(parsed.groupedData).length > 0) {
           hasCache = true;
         }
       } catch {
@@ -907,11 +962,57 @@ export function PivotSheet() {
       }
     }
 
+    // Dữ liệu Pivot đã được xử lý và lưu trong cache. Chỉ nút "Đồng bộ"
+    // mới chủ động dựng lại dữ liệu từ bảng Cài đặt & tải file Master.
+    if (!showToastMsg && hasCache) return;
+
     if (!hasCache) {
       setIsProcessing(true);
     }
 
     try {
+      const processedSheet1 = appData.Sheet1_AE?.data || [];
+      const processedRoster = (appData.Q_Roster || []).filter((row: any) => {
+        const sourceFile = String(row?._sourceFile || "").trim().toUpperCase();
+        const rowId = String(row?._rowId || "").trim().toLowerCase();
+        return sourceFile !== "MOCK_ROSTER.XLSX" && !rowId.startsWith("mock-row-");
+      });
+
+      // Ưu tiên dữ liệu đã được bảng Master xử lý để đồng bộ nhanh và không
+      // parse lại hàng loạt file Excel trên main thread.
+      if (processedSheet1.length > 0 || processedRoster.length > 0) {
+        const res = buildPivotFromAppData(
+          processedSheet1,
+          [],
+          processedRoster,
+        );
+        setGroupedData(res?.groupedData || {});
+        setTypeColumns(res?.typeColumns || []);
+        setDiagnosticLogs([]);
+        const infoStr = `Đồng bộ từ Master (${processedSheet1.length} dòng Gross Pay, ${processedRoster.length} dòng MKT Local)`;
+        _setSourceInfo(infoStr);
+
+        try {
+          localStorage.setItem("pivot_master_processed_data", JSON.stringify({
+            groupedData: res?.groupedData || {},
+            typeColumns: res?.typeColumns || [],
+            diagnosticLogs: [],
+            sourceInfo: infoStr,
+            filter: selectedMonthFilter,
+            updatedAt: Date.now(),
+          }));
+        } catch {
+          // ignore cache write error
+        }
+
+        if (showToastMsg) {
+          toast.success(
+            `Đã đồng bộ Pivot Master từ dữ liệu đã xử lý trong bảng Master`,
+          );
+        }
+        return;
+      }
+
       const masterRows = appData.Ae_Global_Inputs || [];
       const fileBuffers: { name: string; bank?: string; buffer: ArrayBuffer; month: string }[] = [];
 
@@ -968,25 +1069,27 @@ export function PivotSheet() {
         setDiagnosticLogs([]);
         const infoStr = `Đồng bộ từ dữ liệu Sheet1 AE (${filteredSheet1.length} dòng)`;
         _setSourceInfo(infoStr);
+        try {
+          localStorage.setItem("pivot_master_processed_data", JSON.stringify({
+            groupedData: res?.groupedData || {},
+            typeColumns: res?.typeColumns || [],
+            diagnosticLogs: [],
+            sourceInfo: infoStr,
+            filter: selectedMonthFilter,
+            updatedAt: Date.now(),
+          }));
+        } catch {
+          // ignore cache write error
+        }
         if (showToastMsg) {
           toast.success(`Đã đồng bộ Pivot Master từ dữ liệu Sheet1 AE`);
         }
       } else {
-        setGroupedData({});
-        setTypeColumns([]);
-        setDiagnosticLogs([]);
-        _setSourceInfo("");
-        try {
-          localStorage.removeItem("pivot_master_processed_data");
-        } catch {
-          // ignore
-        }
         if (showToastMsg) {
-          if (selectedMonthFilter !== "ALL") {
-            toast.info(`Chưa có file nào khớp với tháng ${selectedMonthFilter} trong bảng Master`);
-          } else {
-            toast.info("Chưa có file nào trong bảng Cài đặt & tải file (Master)");
-          }
+          toast.info(
+            "Chưa có dữ liệu Master đã xử lý. Đang mở bảng Cài đặt & tải file (Master).",
+          );
+          window.dispatchEvent(new Event("master-ae-request-upload"));
         }
       }
     } catch (err) {
@@ -1029,23 +1132,36 @@ export function PivotSheet() {
       }
 
       const res = await processFileBuffers(fileBuffers);
-      setGroupedData(res?.groupedData || {});
-      setTypeColumns(res?.typeColumns || []);
-      setDiagnosticLogs(res?.logs || []);
-      const infoStr = `Tải trực tiếp từ ${fileBuffers.length} file vừa chọn`;
+      const mergedGroupedData = mergePivotGroupedData(
+        safeGroupedData,
+        res?.groupedData || {},
+      );
+      const mergedTypeColumns = mergePivotTypeColumns(
+        safeTypeColumns,
+        res?.typeColumns || [],
+      );
+      const mergedLogs = [...diagnosticLogs, ...(res?.logs || [])];
+
+      setGroupedData(mergedGroupedData);
+      setTypeColumns(mergedTypeColumns);
+      setDiagnosticLogs(mergedLogs);
+      const infoStr = `Đã bổ sung ${fileBuffers.length} file vào dữ liệu Pivot hiện có`;
       _setSourceInfo(infoStr);
       try {
         localStorage.setItem("pivot_master_processed_data", JSON.stringify({
-          groupedData: res?.groupedData || {},
-          typeColumns: res?.typeColumns || [],
-          diagnosticLogs: res?.logs || [],
+          groupedData: mergedGroupedData,
+          typeColumns: mergedTypeColumns,
+          diagnosticLogs: mergedLogs,
           sourceInfo: infoStr,
+          filter: selectedMonthFilter,
           updatedAt: Date.now()
         }));
       } catch {
         // ignore cache write error
       }
-      toast.success(`Đã xử lý xong ${fileBuffers.length} file tải lên trực tiếp`);
+      toast.success(
+        `Đã bổ sung ${fileBuffers.length} file; dữ liệu và các cột cũ được giữ nguyên`,
+      );
     } catch (err) {
       console.error("Error processing manual upload:", err);
       toast.error("Lỗi khi xử lý các file vừa chọn");
